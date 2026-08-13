@@ -41,10 +41,10 @@ export function BuyVoid() {
 
   return (
     <section className="buy-panel" aria-labelledby="buy-title">
-      <div><span className="eyebrow">CONTINUOUS MARKET</span><h2 id="buy-title">BUY VOID</h2><p>The curve stays open. More demand raises the price.</p></div>
+      <div><span className="eyebrow">BASE MAINNET</span><h2 id="buy-title">BUY VOID</h2><p>Purchase VOID with ETH.</p></div>
       <form onSubmit={submit}>
         <label><span>ETH ON BASE</span><input name="eth" inputMode="decimal" placeholder="0.01" required /></label>
-        <button className="primary-action" disabled={!curveAddress || !isConnected || busy}>{!curveAddress ? "CURVE DEPLOYMENT REQUIRED" : !isConnected ? "CONNECT WALLET TO BUY" : busy ? "PROCESSING…" : "BUY VOID"}</button>
+        <button className="primary-action" disabled={!curveAddress || !isConnected || busy}>{busy ? "PROCESSING…" : "BUY"}</button>
         <small aria-live="polite">{quote}</small>
       </form>
     </section>
