@@ -1,0 +1,15 @@
+node_modules
+.next
+.vercel
+.env
+.env.local
+.env.*.local
+!.env.example
+coverage
+cache
+contracts/cache
+contracts/out
+contracts/broadcast
+contracts/lib/forge-std
+.DS_Store
+*.log
