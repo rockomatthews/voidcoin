@@ -34,7 +34,7 @@ export async function GET() {
   const address = configuredContractAddress();
   const deploymentBlock = process.env.NEXT_PUBLIC_VOIDCOIN_DEPLOYMENT_BLOCK;
   if (!address || !deploymentBlock) {
-    return Response.json({ configured: false, identities: [{ burnId: "0", name: "VOIDCOIN", symbol: "VOID", image: "/og.png", burner: "GENESIS", transactionHash: null }] });
+    return Response.json({ configured: false, identities: [{ burnId: "0", name: "VOIDCOIN", symbol: "VOID", image: "/voidcoin-logo.png", burner: "GENESIS", transactionHash: null }] });
   }
 
   try {
@@ -48,7 +48,7 @@ export async function GET() {
       burner: log.args.burner ?? "",
       transactionHash: log.transactionHash,
     })));
-    identities.push({ burnId: "0", name: "VOIDCOIN", symbol: "VOID", image: "/og.png", burner: "GENESIS", transactionHash: null });
+    identities.push({ burnId: "0", name: "VOIDCOIN", symbol: "VOID", image: "/voidcoin-logo.png", burner: "GENESIS", transactionHash: null });
     return Response.json({ configured: true, identities }, { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Archive unavailable" }, { status: 502 });

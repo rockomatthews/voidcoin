@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     description: "A competitive-burn, moderator-gated mutable token identity on Base.",
     images: ["/og.png"],
   },
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: { icon: "/voidcoin-logo.png", apple: "/voidcoin-logo.png" },
 };
 
 export const viewport: Viewport = { themeColor: "#07080a", colorScheme: "dark" };
