@@ -5,7 +5,16 @@ export const ORIGINAL_SUPPLY = 1_000_000_000;
 export const MINIMUM_BURN_INCREMENT = 1_000_000;
 
 export function getSiteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+  const candidate = configuredUrl || vercelUrl || "http://localhost:3000";
+  const absoluteUrl = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+
+  try {
+    return new URL(absoluteUrl).origin;
+  } catch {
+    return "http://localhost:3000";
+  }
 }
 
 export function shortAddress(value: string) {
