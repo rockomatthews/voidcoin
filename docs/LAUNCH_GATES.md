@@ -6,6 +6,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 
 - Application lint, unit tests, and production build pass.
 - Foundry unit, fuzz, invariant, and static-analysis checks pass.
+- `npm run contracts:security` completes with zero Slither findings and no parser errors.
 - Verify the contract-enforced burn sequence is exactly 1M, 2M, 3M, and onward and cannot be caller-selected.
 - Upload privacy, authorization, duplicate event, and webhook retry tests pass.
 - Desktop, mobile, keyboard, screen-reader, and reduced-motion review is complete.

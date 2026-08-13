@@ -8,6 +8,8 @@ Each commitment binds `chainid`, token address, burn ID, burner, exact burn amou
 
 The caller cannot select a cheaper or more expensive burn. `burnForRename` verifies the expected amount against `recordBurn + 1,000,000 VOID`, making the sequence deterministic: 1M, 2M, 3M, and onward. A stale transaction reverts before burning.
 
+`npm run contracts:security` is the canonical static-analysis command. It analyzes `VOIDLaunch` and its entire dependency graph with Slither, direct `solc`, and the exact 0.8.30 compiler. This avoids the unresolved inheritance references produced by the current Foundry build-info ingestion path. The command fails closed when the expected compiler or Slither is unavailable, and CI runs it on every push and pull request.
+
 `VOIDLaunch` performs the genesis allocation atomically: 90% enters the continuous buyer-funded curve and 10% enters the Safe-beneficiary vesting wallet. The launch contract becomes the token owner only long enough to initiate two-step ownership transfer to the Safe; it exposes no owner-call forwarding surface. The curve can trade indefinitely, closes automatically at the ETH threshold, and only the Safe can call its migration adapter.
 
 ## Private moderation data

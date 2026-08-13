@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts -vvv",
+    "contracts:security": "./scripts/security-check.sh",
     "verify": "npm run lint && npm test && npm run build"
   },
   "dependencies": {

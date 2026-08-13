@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 interface IVOIDMigrationTarget {
     function migrate(address token, uint256 tokenAmount) external payable;
@@ -90,7 +91,7 @@ contract VOIDBondingCurve is Ownable, ReentrancyGuard {
         uint256 invariant = (virtualEthReserve + ethBefore) * tokensBefore;
         uint256 tokensAfter = invariant / (virtualEthReserve + ethBefore + msg.value);
         tokensOut = tokensBefore - tokensAfter;
-        if (tokensOut == 0 || tokensOut > tokensBefore) revert InsufficientCurveLiquidity();
+        if (tokensOut < 1 || tokensOut > tokensBefore) revert InsufficientCurveLiquidity();
         if (tokensOut < minimumTokensOut) revert SlippageExceeded();
 
         token.safeTransfer(msg.sender, tokensOut);
@@ -107,12 +108,11 @@ contract VOIDBondingCurve is Ownable, ReentrancyGuard {
         uint256 invariant = (virtualEthReserve + ethBefore) * tokensBefore;
         uint256 ethAfterWithVirtual = invariant / (tokensBefore + tokensIn);
         ethOut = virtualEthReserve + ethBefore - ethAfterWithVirtual;
-        if (ethOut == 0 || ethOut > ethBefore) revert InsufficientCurveLiquidity();
+        if (ethOut < 1 || ethOut > ethBefore) revert InsufficientCurveLiquidity();
         if (ethOut < minimumEthOut) revert SlippageExceeded();
 
         token.safeTransferFrom(msg.sender, address(this), tokensIn);
-        (bool sent,) = payable(msg.sender).call{value: ethOut}("");
-        if (!sent) revert MigrationFailed();
+        Address.sendValue(payable(msg.sender), ethOut);
         emit TokensSold(msg.sender, tokensIn, ethOut);
     }
 

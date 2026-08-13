@@ -44,7 +44,10 @@ Install Foundry, then:
 ```bash
 forge build
 forge test
+npm run contracts:security
 ```
+
+The security command runs Slither against the full launch dependency graph using the exact Solidity 0.8.30 binary and direct `solc` compilation. It intentionally bypasses Foundry build-info ingestion so unresolved AST references cannot be mistaken for a successful scan. Set `VOIDCOIN_SOLC_BIN` when the system `solc` command is not version 0.8.30.
 
 The deployment creates the token, vesting wallet, and a continuous constant-product bonding curve, then atomically deposits the 90% launch allocation into the curve. Buyers provide all real ETH. The curve has no auction duration or failed-launch deadline: it remains open until accumulated buyer ETH reaches the approved graduation threshold. At that point trading pauses and the Safe may migrate the ETH and remaining VOID through a separately reviewed migration target. No creator-funded ETH is supplied.
 
