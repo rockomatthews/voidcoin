@@ -11,6 +11,7 @@ The website brand is permanent. Only the token skin changes.
 - `src/app` — Next.js App Router website, wallet flow, admin moderation, and API routes
 - `src/lib` — contract client, signature auth, image sanitization, Neon, Blob, IPFS, email, and webhook helpers
 - `contracts/src/VOIDCoin.sol` — non-upgradeable ERC-20 identity contract
+- `contracts/src/VOIDLaunch.sol` — one-transaction handoff of the 90% launch allocation to Uniswap Liquidity Launcher
 - `contracts/test` — unit, fuzz, authorization, expiry, and cooldown tests
 - `contracts/script` — deployment of the vesting wallet and token with two-step Safe handoff
 - `drizzle` — Postgres schema migration
@@ -44,7 +45,9 @@ forge build
 forge test
 ```
 
-Deployment scripts require explicit values for every address and URI. They do not create a Uniswap position, choose a price, fund liquidity, lock LP ownership, accept Safe ownership, unpause rename slots, or deploy the website.
+The deployment creates the token and vesting wallet, then atomically deposits the 90% launch allocation into an explicitly configured Uniswap Liquidity Launcher LBP strategy. Buyers provide the ETH raised by the curve; the strategy reserves configured VOID and migrates the raised ETH plus that reserve into Uniswap v4. No creator-funded ETH is supplied. The curve configuration, timing, migration allocation, fee settings, recipients, and deployed protocol addresses must be independently decoded and approved before signing.
+
+The deployment does not accept Safe ownership, choose curve economics, unpause rename slots, or deploy the website.
 
 ## Moderation lifecycle
 

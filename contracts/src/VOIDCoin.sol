@@ -12,7 +12,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     uint256 public constant BURN_AMOUNT = 1_000_000 ether;
     uint256 public constant SLOT_DURATION = 72 hours;
     uint256 public constant RENAME_COOLDOWN = 2 minutes;
-    uint256 public constant LIQUIDITY_ALLOCATION = 900_000_000 ether;
+    uint256 public constant LAUNCH_ALLOCATION = 900_000_000 ether;
     uint256 public constant TREASURY_ALLOCATION = 100_000_000 ether;
 
     struct RenameSlot {
@@ -62,11 +62,11 @@ contract VOIDCoin is ERC20, Ownable2Step {
 
     constructor(
         address initialOwner,
-        address liquidityReceiver,
+        address launchReceiver,
         address treasuryVestingWallet,
         string memory initialTokenURI
     ) ERC20("VOIDCOIN", "VOID") Ownable(initialOwner) {
-        if (liquidityReceiver == address(0) || treasuryVestingWallet == address(0)) {
+        if (launchReceiver == address(0) || treasuryVestingWallet == address(0)) {
             revert InvalidAllocationAddress();
         }
 
@@ -75,7 +75,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
         _currentTokenURI = initialTokenURI;
         renamePaused = true;
 
-        _mint(liquidityReceiver, LIQUIDITY_ALLOCATION);
+        _mint(launchReceiver, LAUNCH_ALLOCATION);
         _mint(treasuryVestingWallet, TREASURY_ALLOCATION);
     }
 

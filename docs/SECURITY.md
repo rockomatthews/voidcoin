@@ -6,6 +6,8 @@ The owner is intended to be a multisignature Safe. It may apply a commitment-mat
 
 Each commitment binds `chainid`, token address, burn ID, burner, proposed name, proposed symbol, cleaned image hash, and a random salt. A valid active burn is required for any metadata change. Burns never reverse.
 
+`VOIDLaunch` performs the genesis allocation atomically: 90% is consumed by the configured Uniswap Liquidity Launcher strategy and 10% enters the Safe-beneficiary vesting wallet. The launcher contract becomes the token owner only long enough to initiate two-step ownership transfer to the Safe; it exposes no owner-call forwarding surface.
+
 ## Private moderation data
 
 Unapproved text, email addresses, salt values, and images remain offchain. Image payloads are capped before decoding, checked by decoded format and dimensions, and re-encoded to remove unnecessary metadata. Private Blob URLs and tokens must never reach client bundles, logs, or public database responses. Rejected assets require a scheduled deletion process after 30 days; the operator must verify that job before activation.
@@ -24,6 +26,7 @@ Alchemy signatures are checked over the raw body. Receipt IDs are stored uniquel
 - IPFS publication is effectively irreversible; moderation must happen before pinning.
 - A prepared Safe transaction is not approval until its threshold executes and the event confirms.
 - Technical review does not evaluate securities, trademark, consumer-protection, tax, sanctions, or money-transmission obligations.
+- LBP configuration is economic code. Incorrect starting price, duration, reserve allocation, recipients, or migration ranges can prevent migration or cause loss; Uniswap explicitly requires integrators to validate every parameter.
 
 ## Static-analysis baseline
 

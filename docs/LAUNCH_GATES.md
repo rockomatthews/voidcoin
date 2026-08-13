@@ -31,12 +31,14 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Deploy with rename slots paused, verify source, transfer ownership, and have the Safe call `acceptOwnership()`.
 - Independently verify bytecode, allocation, vesting, and zero deployer authority.
 
-## 5. Liquidity
+## 5. Buyer-funded bonding curve
 
-- Explicitly approve the ETH amount and opening token/ETH price. No defaults are permitted.
-- Select and verify the Base Uniswap fee tier and range.
-- Select a verified Base-compatible LP position locker and approve exact lock dates of at least 12 months.
-- Create the position, lock it, and verify token allocation and position ownership onchain.
+- Decode and explicitly approve every Uniswap Liquidity Launcher LBP parameter, including auction duration, starting and ending prices, reserved token amount, migration block, currency, fee, tick spacing, allocation schedule, recovery recipient, and position recipient.
+- Verify the exact canonical Liquidity Launcher, Permit2, and LBPStrategy addresses for the target Base network against the reviewed Uniswap release.
+- Confirm the curve receives exactly 900,000,000 VOID and the 12-month vesting wallet receives exactly 100,000,000 VOID.
+- Buyers—not the creator—supply the ETH accumulated by the curve. Confirm the configured migration moves the approved share of that ETH plus reserved VOID into the v4 position.
+- Set the LP position recipient to an approved permanent or time-locked custody contract and verify the resulting position ownership after migration.
+- Exercise Uniswap's documented migration-failure recovery path on Base Sepolia before Mainnet.
 
 ## 6. Production services
 

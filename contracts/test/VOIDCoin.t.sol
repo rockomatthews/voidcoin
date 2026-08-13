@@ -8,7 +8,7 @@ import {VOIDCoin} from "../src/VOIDCoin.sol";
 contract VOIDCoinTest is Test {
     VOIDCoin internal token;
     address internal safe = makeAddr("safe");
-    address internal liquidity = makeAddr("liquidity");
+    address internal launch = makeAddr("launch");
     address internal vesting = makeAddr("vesting");
     address internal burner = makeAddr("burner");
 
@@ -16,14 +16,14 @@ contract VOIDCoinTest is Test {
     bytes32 internal salt = keccak256("salt");
 
     function setUp() public {
-        token = new VOIDCoin(safe, liquidity, vesting, "ipfs://genesis");
-        vm.prank(liquidity);
+        token = new VOIDCoin(safe, launch, vesting, "ipfs://genesis");
+        vm.prank(launch);
         token.transfer(burner, 2_000_000 ether);
     }
 
     function testInitialAllocationAndIdentity() public view {
         assertEq(token.totalSupply(), 1_000_000_000 ether);
-        assertEq(token.balanceOf(liquidity), 898_000_000 ether);
+        assertEq(token.balanceOf(launch), 898_000_000 ether);
         assertEq(token.balanceOf(vesting), 100_000_000 ether);
         assertEq(token.balanceOf(burner), 2_000_000 ether);
         assertEq(token.name(), "VOIDCOIN");
@@ -83,11 +83,11 @@ contract VOIDCoinTest is Test {
         token.burnForRename(keccak256("first"));
 
         vm.expectRevert(VOIDCoin.SlotAlreadyActive.selector);
-        vm.prank(liquidity);
+        vm.prank(launch);
         token.burnForRename(keccak256("second"));
 
         vm.expectRevert(VOIDCoin.NotActiveBurner.selector);
-        vm.prank(liquidity);
+        vm.prank(launch);
         token.replaceCommitment(keccak256("replace"));
     }
 
@@ -130,7 +130,7 @@ contract VOIDCoinTest is Test {
 
     function testFuzzSupplyOnlyDropsByFixedBurn(uint8 burnCount) public {
         burnCount = uint8(bound(burnCount, 1, 20));
-        vm.prank(liquidity);
+        vm.prank(launch);
         token.transfer(burner, uint256(burnCount) * 1_000_000 ether);
         vm.prank(safe);
         token.setRenamePaused(false);
