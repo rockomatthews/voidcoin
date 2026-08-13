@@ -1,4 +1,4 @@
-import { base, baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 
 export const voidCoinAbi = [
   {
@@ -99,11 +99,11 @@ export const voidBondingCurveAbi = [
 ] as const;
 
 export function configuredChainId() {
-  return Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? baseSepolia.id);
+  return base.id;
 }
 
 export function configuredChain() {
-  return configuredChainId() === base.id ? base : baseSepolia;
+  return base;
 }
 
 export function configuredContractAddress() {

@@ -9,10 +9,10 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Upload privacy, authorization, duplicate event, and webhook retry tests pass.
 - Desktop, mobile, keyboard, screen-reader, and reduced-motion review is complete.
 
-## 2. Base Sepolia lifecycle
+## 2. Local Base Mainnet-fork rehearsal
 
-- Deploy the token paused and verify source.
-- Deploy a test Safe and complete the two-step ownership acceptance.
+- Rehearse the deployment against a local Base Mainnet fork without publishing contracts to another chain.
+- Exercise the production Safe ownership sequence with local impersonation and complete the two-step ownership acceptance.
 - Exercise approval, requested changes, replacement commitment, successive record challenges, wrong network, rejected transaction, and insufficient balance.
 - Confirm the deployer retains no owner authority.
 - Test event indexing, email idempotency, private assets, IPFS publication, and decoded Safe calldata.
@@ -37,7 +37,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Confirm the continuous curve receives exactly 900,000,000 VOID and the 12-month vesting wallet receives exactly 100,000,000 VOID.
 - Buyers—not the creator—supply every real ETH deposit. Confirm the reviewed migration target moves that ETH plus remaining VOID into the intended Uniswap pool.
 - Set the LP position recipient to an approved permanent or time-locked custody contract and verify the resulting position ownership after migration.
-- Exercise the curve's buy, sell, threshold close, failed migration rollback, and successful Uniswap migration paths on Base Sepolia before Mainnet.
+- Exercise the curve's buy, sell, threshold close, failed migration rollback, and successful Uniswap migration paths on a local Base Mainnet fork before publishing the production deployment.
 
 ## 6. Production services
 

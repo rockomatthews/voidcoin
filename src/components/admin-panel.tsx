@@ -43,7 +43,7 @@ export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] 
         <Link href="/">PUBLIC SITE ↗</Link>
       </header>
       <div className="review-grid">
-        {requests.length === 0 ? <div className="empty-review">No live requests. Configure Neon and complete a Sepolia burn to populate this chamber.</div> : requests.map((item) => (
+        {requests.length === 0 ? <div className="empty-review">No live requests. Configure Neon and complete a Base Mainnet burn to populate this chamber.</div> : requests.map((item) => (
           <article className="review-card" key={item.id}>
             <div className="review-meta"><span>BURN / {item.burnId}</span><span>{item.status.replaceAll("_", " ")}</span></div>
             <Image className="review-image" src={`/api/admin/requests/${item.id}/image`} alt={`Private proposed artwork for ${item.proposedName}`} width={640} height={640} unoptimized />

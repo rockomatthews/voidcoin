@@ -90,7 +90,7 @@ export function BurnTerminal() {
   }
 
   const disabledReason = !contractAddress
-    ? "The Base Sepolia contract has not been deployed yet. The interface is ready for review."
+    ? "The Base Mainnet contract has not been deployed yet."
     : !isConnected
       ? "Connect a wallet to enter the chamber."
       : !accepted
@@ -139,7 +139,7 @@ export function BurnTerminal() {
       </label>
       <div className={`terminal-status phase-${phase}`} aria-live="polite"><span />{message}</div>
       <button className="primary-action" type="submit" disabled={Boolean(disabledReason) || phase === "burning" || phase === "confirming" || phase === "preparing" || phase === "signing"} title={disabledReason ?? undefined}>
-        {contractAddress ? "BEAT THE RECORD + SUBMIT" : "SEPOLIA DEPLOYMENT REQUIRED"}
+        {contractAddress ? "BEAT THE RECORD + SUBMIT" : "MAINNET DEPLOYMENT REQUIRED"}
       </button>
     </form>
   );

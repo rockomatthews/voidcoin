@@ -26,7 +26,7 @@ Alchemy signatures are checked over the raw body. Receipt IDs are stored uniquel
 - IPFS publication is effectively irreversible; moderation must happen before pinning.
 - A prepared Safe transaction is not approval until its threshold executes and the event confirms.
 - Technical review does not evaluate securities, trademark, consumer-protection, tax, sanctions, or money-transmission obligations.
-- Bonding-curve and migration configuration is economic code. The virtual reserve controls price and slippage; the threshold controls when trading closes; a faulty migration adapter can strand or lose funds. All three require independent review and full Sepolia lifecycle tests.
+- Bonding-curve and migration configuration is economic code. The virtual reserve controls price and slippage; the threshold controls when trading closes; a faulty migration adapter can strand or lose funds. All three require independent review and a complete local Base Mainnet-fork rehearsal.
 
 ## Static-analysis baseline
 

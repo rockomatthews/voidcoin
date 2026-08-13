@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const contractAddress = configuredContractAddress();
   if (!contractAddress || !hasDatabase() || !process.env.BLOB_READ_WRITE_TOKEN) {
-    return Response.json({ error: "Rename intake is not active until the Sepolia contract, Neon, and private Blob store are configured." }, { status: 503 });
+    return Response.json({ error: "Rename intake is not active until the Base Mainnet contract, Neon, and private Blob store are configured." }, { status: 503 });
   }
 
   let form: FormData;

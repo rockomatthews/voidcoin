@@ -42,7 +42,7 @@ export function IdentityGallery() {
         {identities.map((identity, index) => (
           <article className="identity-card" key={`${identity.burnId}-${identity.transactionHash ?? "genesis"}`}>
             <div className="identity-card-image">{identity.image ? <Image src={identity.image} alt={`${identity.name} archived token identity`} fill sizes="(max-width: 700px) 82vw, 320px" unoptimized={identity.image.startsWith("http")} /> : <span>VØ</span>}<i>#{String(identities.length - index - 1).padStart(3, "0")}</i></div>
-            <div className="identity-card-copy"><h3>{identity.name}</h3><strong>${identity.symbol}</strong><small>{identity.burner === "GENESIS" ? "GENESIS" : shortAddress(identity.burner)}</small>{identity.transactionHash ? <a href={`https://${process.env.NEXT_PUBLIC_CHAIN_ID === "8453" ? "" : "sepolia."}basescan.org/tx/${identity.transactionHash}`} target="_blank" rel="noreferrer">TX ↗</a> : null}</div>
+            <div className="identity-card-copy"><h3>{identity.name}</h3><strong>${identity.symbol}</strong><small>{identity.burner === "GENESIS" ? "GENESIS" : shortAddress(identity.burner)}</small>{identity.transactionHash ? <a href={`https://basescan.org/tx/${identity.transactionHash}`} target="_blank" rel="noreferrer">TX ↗</a> : null}</div>
           </article>
         ))}
       </div>

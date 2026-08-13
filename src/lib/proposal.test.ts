@@ -20,7 +20,7 @@ describe("proposal validation", () => {
   });
 
   it("creates a stable typed commitment", () => {
-    const input = { chainId: 84532, contractAddress: contract, burnId: 1n, burner: wallet, burnAmount: 1_000_000n * 10n ** 18n, name: "VOIDCOIN", symbol: "VOID", imageHash: hash, salt };
+    const input = { chainId: 8453, contractAddress: contract, burnId: 1n, burner: wallet, burnAmount: 1_000_000n * 10n ** 18n, name: "VOIDCOIN", symbol: "VOID", imageHash: hash, salt };
     expect(createCommitment(input)).toBe(createCommitment(input));
   });
 });
