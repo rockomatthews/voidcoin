@@ -5,7 +5,10 @@ export const voidCoinAbi = [
     type: "function",
     name: "burnForRename",
     stateMutability: "nonpayable",
-    inputs: [{ name: "amount", type: "uint256" }, { name: "commitment", type: "bytes32" }],
+    inputs: [
+      { name: "expectedAmount", type: "uint256" },
+      { name: "commitment", type: "bytes32" },
+    ],
     outputs: [],
   },
   {
@@ -90,12 +93,7 @@ export const voidCoinAbi = [
       { name: "imageHash", type: "bytes32", indexed: false },
     ],
   },
-] as const;
-
-export const voidBondingCurveAbi = [
-  { type: "function", name: "buy", stateMutability: "payable", inputs: [{ name: "minimumTokensOut", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
-  { type: "function", name: "quoteBuy", stateMutability: "view", inputs: [{ name: "ethIn", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
-  { type: "function", name: "graduationReady", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
 export function configuredChainId() {
@@ -108,10 +106,5 @@ export function configuredChain() {
 
 export function configuredContractAddress() {
   const address = process.env.NEXT_PUBLIC_VOIDCOIN_ADDRESS;
-  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
-}
-
-export function configuredBondingCurveAddress() {
-  const address = process.env.NEXT_PUBLIC_BONDING_CURVE_ADDRESS;
   return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
 }

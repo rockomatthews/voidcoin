@@ -6,6 +6,8 @@ The owner is intended to be a multisignature Safe. It may apply a commitment-mat
 
 Each commitment binds `chainid`, token address, burn ID, burner, exact burn amount, proposed name, proposed symbol, cleaned image hash, and a random salt. A valid current-record burn is required for any metadata change. Burns never reverse, including when a later challenger supersedes a pending proposal.
 
+The caller cannot select a cheaper or more expensive burn. `burnForRename` verifies the expected amount against `recordBurn + 1,000,000 VOID`, making the sequence deterministic: 1M, 2M, 3M, and onward. A stale transaction reverts before burning.
+
 `VOIDLaunch` performs the genesis allocation atomically: 90% enters the continuous buyer-funded curve and 10% enters the Safe-beneficiary vesting wallet. The launch contract becomes the token owner only long enough to initiate two-step ownership transfer to the Safe; it exposes no owner-call forwarding surface. The curve can trade indefinitely, closes automatically at the ETH threshold, and only the Safe can call its migration adapter.
 
 ## Private moderation data

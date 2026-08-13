@@ -61,15 +61,11 @@ contract VOIDCoinTest is Test {
         assertEq(token.recordBurn(), amount);
     }
 
-    function testChallengerMustBeatRecordByMinimumIncrement() public {
+    function testChallengerAutomaticallyBurnsNextIncrement() public {
         _unpause();
-        _burn(firstBurner, 1_000_000 ether, keccak256("first"));
+        _burn(firstBurner, keccak256("first"));
 
-        vm.expectRevert(VOIDCoin.BurnBelowRecord.selector);
-        vm.prank(challenger);
-        token.burnForRename(1_999_999 ether, keccak256("too-small"));
-
-        _burn(challenger, 2_000_000 ether, keccak256("challenge"));
+        _burn(challenger, keccak256("challenge"));
         assertEq(token.recordBurner(), challenger);
         assertEq(token.recordBurn(), 2_000_000 ether);
         assertEq(token.activeSlot().burner, challenger);
@@ -78,10 +74,10 @@ contract VOIDCoinTest is Test {
 
     function testNewRecordSupersedesPendingProposalWithoutRefund() public {
         _unpause();
-        _burn(firstBurner, 1_000_000 ether, keccak256("first"));
+        _burn(firstBurner, keccak256("first"));
         uint256 firstBalanceAfterBurn = token.balanceOf(firstBurner);
 
-        _burn(challenger, 2_000_000 ether, keccak256("challenge"));
+        _burn(challenger, keccak256("challenge"));
 
         assertEq(token.balanceOf(firstBurner), firstBalanceAfterBurn);
         assertEq(token.activeSlot().burner, challenger);
@@ -91,7 +87,7 @@ contract VOIDCoinTest is Test {
 
     function testLeaderCanReplaceCommitmentWithoutAnotherBurn() public {
         _unpause();
-        _burn(firstBurner, 1_000_000 ether, keccak256("first"));
+        _burn(firstBurner, keccak256("first"));
         uint256 supplyAfterBurn = token.totalSupply();
 
         vm.prank(firstBurner);
@@ -103,7 +99,7 @@ contract VOIDCoinTest is Test {
 
     function testOnlyCurrentLeaderCanReplaceCommitment() public {
         _unpause();
-        _burn(firstBurner, 1_000_000 ether, keccak256("first"));
+        _burn(firstBurner, keccak256("first"));
 
         vm.expectRevert(VOIDCoin.NotActiveBurner.selector);
         vm.prank(challenger);
@@ -112,6 +108,7 @@ contract VOIDCoinTest is Test {
 
     function testCommitmentBindsBurnAmount() public {
         _unpause();
+        _burn(challenger, keccak256("first"));
         uint256 burnId = token.nextBurnId();
         bytes32 commitment =
             token.proposalCommitment(burnId, firstBurner, 1_000_000 ether, "Clean Name", "CLEAN", imageHash, salt);
@@ -121,6 +118,20 @@ contract VOIDCoinTest is Test {
         vm.expectRevert(VOIDCoin.CommitmentMismatch.selector);
         vm.prank(safe);
         token.approveRename(burnId, "Clean Name", "CLEAN", "ipfs://clean", imageHash, salt);
+    }
+
+    function testStaleBurnRequirementRevertsBeforeTokensAreBurned() public {
+        _unpause();
+        uint256 staleAmount = token.nextBurnRequirement();
+        _burn(firstBurner, keccak256("first"));
+        uint256 challengerBalance = token.balanceOf(challenger);
+
+        vm.expectRevert(VOIDCoin.BurnRequirementChanged.selector);
+        vm.prank(challenger);
+        token.burnForRename(staleAmount, keccak256("stale"));
+
+        assertEq(token.balanceOf(challenger), challengerBalance);
+        assertEq(token.recordBurn(), 1_000_000 ether);
     }
 
     function testOnlyOwnerCanApproveOrPause() public {
@@ -141,7 +152,7 @@ contract VOIDCoinTest is Test {
         uint256 expectedDestroyed;
         for (uint256 i = 1; i <= burnCount; ++i) {
             uint256 amount = i * 1_000_000 ether;
-            _burn(firstBurner, amount, keccak256(abi.encode(i)));
+            _burn(firstBurner, keccak256(abi.encode(i)));
             expectedDestroyed += amount;
         }
 
@@ -155,7 +166,8 @@ contract VOIDCoinTest is Test {
         token.setRenamePaused(false);
     }
 
-    function _burn(address burner, uint256 amount, bytes32 commitment) internal {
+    function _burn(address burner, bytes32 commitment) internal {
+        uint256 amount = token.nextBurnRequirement();
         vm.prank(burner);
         token.burnForRename(amount, commitment);
     }

@@ -16,7 +16,6 @@ export const proposalSchema = z.object({
     .max(15)
     .regex(/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/, "Use letters, numbers, and single spaces only"),
   symbol: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/, "Use letters and numbers only"),
-  burnAmount: z.string().regex(/^[0-9]+$/, "Burn amount must be a whole number of VOID"),
   email: z.string().email().optional().or(z.literal("")),
 });
 

@@ -1,12 +1,12 @@
 import { formatUnits } from "viem";
 import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
-import { MINIMUM_BURN_INCREMENT, INITIAL_TOKEN_NAME, INITIAL_TOKEN_SYMBOL, ORIGINAL_SUPPLY } from "@/lib/site";
+import { BURN_INCREMENT, INITIAL_TOKEN_NAME, INITIAL_TOKEN_SYMBOL, ORIGINAL_SUPPLY } from "@/lib/site";
 
 export async function GET() {
   const address = configuredContractAddress();
   if (!address) {
-    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: MINIMUM_BURN_INCREMENT, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
+    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: BURN_INCREMENT, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
   }
 
   try {

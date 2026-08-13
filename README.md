@@ -1,8 +1,8 @@
 # VOIDCOIN
 
-VOIDCOIN is a Base-native, competitive-burn identity protocol. The token launches as **VOIDCOIN (`VOID`)** with a fixed one-billion supply. The first contender burns at least 1,000,000 VOID; every challenger must permanently burn at least 1,000,000 VOID more than the all-time record. The current record holder controls the private rename proposal, while the owner Safe alone may apply an acceptable name, ticker, and ERC-1046-style metadata URI.
+VOIDCOIN is a Base-native, escalating-burn identity protocol. The token launches as **VOIDCOIN (`VOID`)** with a fixed one-billion supply. The contract automatically burns 1,000,000 VOID for the first challenge, 2,000,000 for the second, 3,000,000 for the third, and so on. The current record holder controls the private rename proposal, while the owner Safe alone may apply an acceptable name, ticker, and ERC-1046-style metadata URI.
 
-The website brand is permanent. Only the token skin changes.
+The website purpose and URL are permanent. Its displayed name, ticker, image, header, hero, and browser title always follow the current approved token identity.
 
 > **Launch blocker:** VOIDCOIN / VOID has existing cryptocurrency and trademark usage. Mainnet liquidity, public promotion, and production activation require legal clearance or explicit acceptance of that collision.
 
@@ -26,7 +26,7 @@ npm install
 npm run dev
 ```
 
-The public interface renders in safe preview mode without service credentials or a deployed contract. Mutation routes fail closed until their required environment variables exist. Set `NEXT_PUBLIC_SITE_URL` before preview/production review so canonical and social metadata point to the correct deployment.
+The public interface renders in safe preview mode without service credentials or a deployed contract. Mutation routes fail closed until their required environment variables exist. The site does not sell VOID; a separate external trading link can be added after Mainnet liquidity exists. Set `NEXT_PUBLIC_SITE_URL` before preview/production review so canonical and social metadata point to the correct deployment.
 
 Useful commands:
 
@@ -50,11 +50,13 @@ The deployment creates the token, vesting wallet, and a continuous constant-prod
 
 The deployment does not accept Safe ownership, choose curve economics, unpause rename slots, or deploy the website.
 
+The exact Base Mainnet rehearsal, broadcast, verification, and post-deploy checklist is in [`docs/MAINNET_DEPLOYMENT.md`](docs/MAINNET_DEPLOYMENT.md).
+
 ## Moderation lifecycle
 
 1. The browser requests a short-lived HMAC challenge and verifies ownership with an EIP-191 wallet signature.
 2. The server validates the real image format, decodes it with `sharp`, strips metadata, stores the clean asset in private Blob storage, and computes the exact onchain commitment.
-3. The user burns at least the displayed record plus 1,000,000 VOID through `burnForRename`; a new record immediately supersedes any pending leader.
+3. The contract enforces exactly the next level through `burnForRename`: the prior record plus 1,000,000 VOID. The expected level is included in the transaction so a stale submission reverts before any tokens burn. A new record immediately supersedes any pending leader.
 4. The moderator enters `/admin` through an allowlisted magic link. Request changes lets the current record holder replace the proposal without burning again; approve publishes the cleaned image and metadata to IPFS and prepares calldata.
 5. The token identity changes only when the owner Safe executes that calldata onchain.
 

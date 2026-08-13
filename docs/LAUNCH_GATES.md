@@ -6,6 +6,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 
 - Application lint, unit tests, and production build pass.
 - Foundry unit, fuzz, invariant, and static-analysis checks pass.
+- Verify the contract-enforced burn sequence is exactly 1M, 2M, 3M, and onward and cannot be caller-selected.
 - Upload privacy, authorization, duplicate event, and webhook retry tests pass.
 - Desktop, mobile, keyboard, screen-reader, and reduced-motion review is complete.
 
@@ -51,3 +52,4 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Confirm monitoring, moderation availability, incident response, and asset-retention jobs.
 - Have the Safe unpause new rename slots.
 - Announce only after the public application and canonical contract state agree.
+- Add an external Base trading link only after the live pool and token address are independently verified; the site itself never embeds a purchase form.

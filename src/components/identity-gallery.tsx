@@ -20,11 +20,13 @@ export function IdentityGallery() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/archive", { signal: controller.signal })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Archive unavailable")))
-      .then((value: { identities: Identity[] }) => setIdentities(value.identities.length ? value.identities : preview))
-      .catch(() => undefined);
-    return () => controller.abort();
+    const load = () => fetch("/api/archive", { signal: controller.signal })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error("Archive unavailable")))
+        .then((value: { identities: Identity[] }) => setIdentities(value.identities.length ? value.identities : preview))
+        .catch(() => undefined);
+    void load();
+    const interval = window.setInterval(load, 30_000);
+    return () => { controller.abort(); window.clearInterval(interval); };
   }, []);
 
   const current = identities[0];

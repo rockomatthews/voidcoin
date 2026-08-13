@@ -2,7 +2,7 @@ export const SITE_NAME = "VOIDCOIN";
 export const INITIAL_TOKEN_NAME = "VOIDCOIN";
 export const INITIAL_TOKEN_SYMBOL = "VOID";
 export const ORIGINAL_SUPPLY = 1_000_000_000;
-export const MINIMUM_BURN_INCREMENT = 1_000_000;
+export const BURN_INCREMENT = 1_000_000;
 
 export function getSiteUrl() {
   const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();

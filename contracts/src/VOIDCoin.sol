@@ -6,7 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /// @title VOIDCoin
-/// @notice Fixed-supply ERC-20 whose public identity is controlled by a competitive burn record and Safe approval.
+/// @notice Fixed-supply ERC-20 whose public identity is controlled by an escalating burn record and Safe approval.
 contract VOIDCoin is ERC20, Ownable2Step {
     uint256 public constant ORIGINAL_SUPPLY = 1_000_000_000 ether;
     uint256 public constant MINIMUM_INCREMENT = 1_000_000 ether;
@@ -33,8 +33,8 @@ contract VOIDCoin is ERC20, Ownable2Step {
     error RenamePaused();
     error NoActiveSlot();
     error NotActiveBurner();
-    error BurnBelowRecord();
     error ZeroCommitment();
+    error BurnRequirementChanged();
     error InvalidName();
     error InvalidSymbol();
     error InvalidMetadataURI();
@@ -122,14 +122,12 @@ contract VOIDCoin is ERC20, Ownable2Step {
         );
     }
 
-    /// @notice Burns a new all-time record amount and replaces any pending leader.
-    /// @dev A displaced leader's burn remains permanent, but only the current record holder can be approved.
-    function burnForRename(uint256 amount, bytes32 commitment) external {
+    function burnForRename(uint256 expectedAmount, bytes32 commitment) external {
         if (renamePaused) revert RenamePaused();
         if (commitment == bytes32(0)) revert ZeroCommitment();
-        uint256 requiredAmount = nextBurnRequirement();
-        if (amount < requiredAmount) revert BurnBelowRecord();
 
+        uint256 amount = nextBurnRequirement();
+        if (expectedAmount != amount) revert BurnRequirementChanged();
         uint256 previousRecord = recordBurn;
         uint256 burnId = ++currentBurnId;
         uint64 openedAt = uint64(block.timestamp);

@@ -16,6 +16,12 @@ contract DeployVOIDCoin is Script {
         uint256 graduationThreshold = vm.envUint("GRADUATION_THRESHOLD");
         string memory initialTokenURI = vm.envOr("INITIAL_TOKEN_URI", string(""));
 
+        require(safe.code.length > 0, "SAFE_ADDRESS must be a deployed Base Mainnet contract");
+        require(migrationTarget.code.length > 0, "MIGRATION_TARGET must be a deployed Base Mainnet contract");
+        require(virtualEthReserve > 0, "VIRTUAL_ETH_RESERVE must be nonzero");
+        require(graduationThreshold > 0, "GRADUATION_THRESHOLD must be nonzero");
+        require(bytes(initialTokenURI).length > 0, "INITIAL_TOKEN_URI must be permanent metadata");
+
         vm.startBroadcast(deployerKey);
         VOIDLaunch launch =
             new VOIDLaunch(safe, migrationTarget, virtualEthReserve, graduationThreshold, initialTokenURI);
