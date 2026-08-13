@@ -34,4 +34,4 @@ Alchemy signatures are checked over the raw body. Receipt IDs are stored uniquel
 
 ## Static-analysis baseline
 
-Re-run Slither after the competitive-burn and continuous-curve changes. The previously recorded static-analysis result applies only to the superseded fixed-slot implementation. An independent review remains a Mainnet gate.
+At commit `18e79a24576fe2a028bf17706342989e96fec0d8`, the canonical direct-`solc` command analyzed the complete 22-contract launch dependency graph with 101 non-timestamp detectors and reported zero findings without parser errors. An independent professional review and a later delta review of the frozen migration target and economic parameters remain Mainnet gates.
