@@ -13,7 +13,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 
 - Deploy the token paused and verify source.
 - Deploy a test Safe and complete the two-step ownership acceptance.
-- Exercise approval, requested changes, replacement commitment, expiry, cooldown, wrong network, rejected transaction, and insufficient balance.
+- Exercise approval, requested changes, replacement commitment, successive record challenges, wrong network, rejected transaction, and insufficient balance.
 - Confirm the deployer retains no owner authority.
 - Test event indexing, email idempotency, private assets, IPFS publication, and decoded Safe calldata.
 
@@ -31,14 +31,13 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Deploy with rename slots paused, verify source, transfer ownership, and have the Safe call `acceptOwnership()`.
 - Independently verify bytecode, allocation, vesting, and zero deployer authority.
 
-## 5. Buyer-funded bonding curve
+## 5. Buyer-funded continuous bonding curve
 
-- Decode and explicitly approve every Uniswap Liquidity Launcher LBP parameter, including auction duration, starting and ending prices, reserved token amount, migration block, currency, fee, tick spacing, allocation schedule, recovery recipient, and position recipient.
-- Verify the exact canonical Liquidity Launcher, Permit2, and LBPStrategy addresses for the target Base network against the reviewed Uniswap release.
-- Confirm the curve receives exactly 900,000,000 VOID and the 12-month vesting wallet receives exactly 100,000,000 VOID.
-- Buyers—not the creator—supply the ETH accumulated by the curve. Confirm the configured migration moves the approved share of that ETH plus reserved VOID into the v4 position.
+- Explicitly approve the virtual ETH reserve, buyer-funded graduation threshold, slippage behavior, remaining-token handling, migration target, pool fee, price range, recovery recipient, and position recipient. There is no auction duration or end price.
+- Confirm the continuous curve receives exactly 900,000,000 VOID and the 12-month vesting wallet receives exactly 100,000,000 VOID.
+- Buyers—not the creator—supply every real ETH deposit. Confirm the reviewed migration target moves that ETH plus remaining VOID into the intended Uniswap pool.
 - Set the LP position recipient to an approved permanent or time-locked custody contract and verify the resulting position ownership after migration.
-- Exercise Uniswap's documented migration-failure recovery path on Base Sepolia before Mainnet.
+- Exercise the curve's buy, sell, threshold close, failed migration rollback, and successful Uniswap migration paths on Base Sepolia before Mainnet.
 
 ## 6. Production services
 

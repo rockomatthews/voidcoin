@@ -7,12 +7,12 @@ import { useState } from "react";
 interface RequestRow {
   id: string;
   burnId: string;
+  burnAmount: string;
   wallet: string;
   proposedName: string;
   proposedSymbol: string;
   status: string;
   transactionHash: string | null;
-  expiresAt: string | null;
   moderatorNote: string | null;
   safeCalldata: string | null;
   history: Array<{ name: string; symbol: string; createdAt: string }>;
@@ -31,7 +31,7 @@ export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] 
       setOutput(`SAFE TRANSACTION READY\nTO: ${result.safeTransaction.to}\nVALUE: 0\nDATA: ${result.safeTransaction.data}`);
       await navigator.clipboard?.writeText(result.safeTransaction.data).catch(() => undefined);
     } else {
-      setOutput("Changes requested. The active burn right remains valid until its original expiry.");
+      setOutput("Changes requested. The record holder can replace the private proposal without another burn unless a higher record takes control.");
     }
     setRequests((current) => current.map((item) => item.id === id ? { ...item, status: action === "approve" ? "ready_for_safe" : "changes_requested" } : item));
   }
@@ -49,7 +49,7 @@ export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] 
             <Image className="review-image" src={`/api/admin/requests/${item.id}/image`} alt={`Private proposed artwork for ${item.proposedName}`} width={640} height={640} unoptimized />
             <h2>{item.proposedName}</h2>
             <strong>${item.proposedSymbol}</strong>
-            <dl><div><dt>Wallet</dt><dd>{item.wallet}</dd></div><div><dt>Expires</dt><dd>{item.expiresAt ?? "Awaiting burn"}</dd></div></dl>
+            <dl><div><dt>Wallet</dt><dd>{item.wallet}</dd></div><div><dt>Record</dt><dd>{(Number(BigInt(item.burnAmount) / 10n ** 18n)).toLocaleString()} VOID</dd></div></dl>
             <div className="review-actions"><button onClick={() => act(item.id, "request_changes")}>REQUEST CHANGES</button><button className="approve" onClick={() => act(item.id, "approve")}>PREPARE SAFE APPROVAL</button></div>
             <details className="submission-history"><summary>SUBMISSION HISTORY / {item.history.length}</summary>{item.history.map((entry) => <p key={`${entry.createdAt}-${entry.name}`}><span>{entry.createdAt.replace("T", " ").slice(0, 19)} UTC</span>{entry.name} / ${entry.symbol}</p>)}</details>
           </article>

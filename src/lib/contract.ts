@@ -5,7 +5,7 @@ export const voidCoinAbi = [
     type: "function",
     name: "burnForRename",
     stateMutability: "nonpayable",
-    inputs: [{ name: "commitment", type: "bytes32" }],
+    inputs: [{ name: "amount", type: "uint256" }, { name: "commitment", type: "bytes32" }],
     outputs: [],
   },
   {
@@ -31,6 +31,9 @@ export const voidCoinAbi = [
   },
   { type: "function", name: "currentBurnId", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "nextBurnId", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "recordBurn", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "recordBurner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "nextBurnRequirement", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "destroyedSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
@@ -48,9 +51,9 @@ export const voidCoinAbi = [
         components: [
           { name: "burnId", type: "uint256" },
           { name: "burner", type: "address" },
+          { name: "burnAmount", type: "uint256" },
           { name: "commitment", type: "bytes32" },
           { name: "openedAt", type: "uint64" },
-          { name: "expiresAt", type: "uint64" },
         ],
       },
     ],
@@ -63,7 +66,7 @@ export const voidCoinAbi = [
       { name: "burner", type: "address", indexed: true },
       { name: "commitment", type: "bytes32", indexed: true },
       { name: "amount", type: "uint256", indexed: false },
-      { name: "expiresAt", type: "uint256", indexed: false },
+      { name: "previousRecord", type: "uint256", indexed: false },
     ],
   },
   {
@@ -89,6 +92,12 @@ export const voidCoinAbi = [
   },
 ] as const;
 
+export const voidBondingCurveAbi = [
+  { type: "function", name: "buy", stateMutability: "payable", inputs: [{ name: "minimumTokensOut", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
+  { type: "function", name: "quoteBuy", stateMutability: "view", inputs: [{ name: "ethIn", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
+  { type: "function", name: "graduationReady", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+] as const;
+
 export function configuredChainId() {
   return Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? baseSepolia.id);
 }
@@ -99,5 +108,10 @@ export function configuredChain() {
 
 export function configuredContractAddress() {
   const address = process.env.NEXT_PUBLIC_VOIDCOIN_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+}
+
+export function configuredBondingCurveAddress() {
+  const address = process.env.NEXT_PUBLIC_BONDING_CURVE_ADDRESS;
   return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
 }

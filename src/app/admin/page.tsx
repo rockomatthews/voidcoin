@@ -16,12 +16,12 @@ export default async function AdminPage() {
   const requests = rows.map((row) => ({
     id: row.id,
     burnId: row.burnId.toString(),
+    burnAmount: row.burnAmount.toString(),
     wallet: row.wallet,
     proposedName: row.proposedName,
     proposedSymbol: row.proposedSymbol,
     status: row.status,
     transactionHash: row.transactionHash,
-    expiresAt: row.expiresAt?.toISOString() ?? null,
     moderatorNote: row.moderatorNote,
     safeCalldata: row.safeCalldata,
     history: submissions.filter((submission) => submission.requestId === row.id).map((submission) => ({ name: submission.proposedName, symbol: submission.proposedSymbol, createdAt: submission.createdAt.toISOString() })),

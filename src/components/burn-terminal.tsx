@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useAccount, useChainId, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
-import { BURN_AMOUNT, formatNumber } from "@/lib/site";
+import { MINIMUM_BURN_INCREMENT, formatNumber } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
 
@@ -19,6 +19,21 @@ export function BurnTerminal() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState("Fill the chamber to prepare a private commitment.");
   const [accepted, setAccepted] = useState(false);
+  const [minimumBurn, setMinimumBurn] = useState(MINIMUM_BURN_INCREMENT);
+  const [burnAmount, setBurnAmount] = useState(String(MINIMUM_BURN_INCREMENT));
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/state", { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("state unavailable")))
+      .then((state: { nextBurnAmount?: number }) => {
+        const next = state.nextBurnAmount ?? MINIMUM_BURN_INCREMENT;
+        setMinimumBurn(next);
+        setBurnAmount(String(next));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +50,7 @@ export function BurnTerminal() {
       const signature = await signMessageAsync({ message: challenge.message });
 
       setPhase("preparing");
-      setMessage("Sanitizing the private image and binding the proposal to the next burn slot.");
+      setMessage("Sanitizing the private image and binding the proposal to the current record challenge.");
       values.set("wallet", address);
       values.set("message", challenge.message);
       values.set("challengeToken", challenge.token);
@@ -45,9 +60,12 @@ export function BurnTerminal() {
       if (!requestResponse.ok) throw new Error(prepared.error ?? "Could not prepare proposal");
 
       setPhase("burning");
-      setMessage(`Confirm the permanent burn of ${formatNumber(BURN_AMOUNT)} VOID in your wallet.`);
       const isReplacement = prepared.mode === "replace";
-      const transactionHash = await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: isReplacement ? "replaceCommitment" : "burnForRename", args: [prepared.commitment], chainId: targetChainId });
+      const burnAmountWei = BigInt(prepared.burnAmount);
+      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} VOID in your wallet.`);
+      const transactionHash = isReplacement
+        ? await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "replaceCommitment", args: [prepared.commitment], chainId: targetChainId })
+        : await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "burnForRename", args: [burnAmountWei, prepared.commitment], chainId: targetChainId });
 
       setPhase("confirming");
       setMessage("Burn submitted. Waiting for Base confirmation and moderation intake.");
@@ -57,8 +75,13 @@ export function BurnTerminal() {
       if (!confirmResponse.ok) throw new Error(confirmed.error ?? "The burn confirmed but intake verification needs attention");
 
       setPhase("complete");
-      setMessage(isReplacement ? "Replacement verified. The moderator has the new private submission; the original deadline is unchanged." : "Burn verified. The moderator has been notified; this slot expires in 72 hours.");
+      setMessage(isReplacement ? "Replacement verified. The moderator has the new private submission." : "New burn record verified. The moderator has been notified. You remain in control unless a higher record replaces yours.");
       formElement.reset();
+      if (!isReplacement) {
+        const next = Number(burnAmountWei / 10n ** 18n) + MINIMUM_BURN_INCREMENT;
+        setMinimumBurn(next);
+        setBurnAmount(String(next));
+      }
       setAccepted(false);
     } catch (error) {
       setPhase("error");
@@ -81,7 +104,7 @@ export function BurnTerminal() {
           <span className="eyebrow">PRIVATE PROPOSAL CHANNEL</span>
           <h2>AUTHOR THE NEXT SKIN</h2>
         </div>
-        <span className="terminal-code">72H / 0.1%</span>
+        <span className="terminal-code">RECORD + {formatNumber(MINIMUM_BURN_INCREMENT)}</span>
       </div>
       <div className="field-grid">
         <label>
@@ -100,6 +123,11 @@ export function BurnTerminal() {
           <small>Used only for this moderation request.</small>
         </label>
         <label>
+          <span>YOUR BURN RECORD</span>
+          <input name="burnAmount" type="number" required min={minimumBurn} step="1" value={burnAmount} onChange={(event) => setBurnAmount(event.target.value)} inputMode="numeric" />
+          <small>Minimum now: {formatNumber(minimumBurn)} VOID. Burn more to set a harder record.</small>
+        </label>
+        <label>
           <span>NEW IMAGE</span>
           <input name="image" type="file" required accept="image/png,image/jpeg,image/gif" />
           <small>Decoded PNG, JPEG, or GIF. 2 MB / 2048 px maximum.</small>
@@ -107,11 +135,11 @@ export function BurnTerminal() {
       </div>
       <label className="burn-warning">
         <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
-        <span><strong>THE BURN CANNOT BE REFUNDED.</strong> Rejection, expiry, a failed resubmission, or third-party metadata caching does not restore the {formatNumber(BURN_AMOUNT)} tokens.</span>
+        <span><strong>THE BURN CANNOT BE REFUNDED.</strong> Rejection, a failed submission, or another wallet setting a higher record does not restore your tokens.</span>
       </label>
       <div className={`terminal-status phase-${phase}`} aria-live="polite"><span />{message}</div>
       <button className="primary-action" type="submit" disabled={Boolean(disabledReason) || phase === "burning" || phase === "confirming" || phase === "preparing" || phase === "signing"} title={disabledReason ?? undefined}>
-        {contractAddress ? `BURN ${formatNumber(BURN_AMOUNT)} VOID + SUBMIT` : "SEPOLIA DEPLOYMENT REQUIRED"}
+        {contractAddress ? "BEAT THE RECORD + SUBMIT" : "SEPOLIA DEPLOYMENT REQUIRED"}
       </button>
     </form>
   );

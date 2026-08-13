@@ -4,9 +4,9 @@
 
 The owner is intended to be a multisignature Safe. It may apply a commitment-matched skin and pause or resume opening new rename slots. It cannot mint, confiscate, blacklist, tax, or pause token transfers. The contract is non-upgradeable. Ownership transfer uses `Ownable2Step`.
 
-Each commitment binds `chainid`, token address, burn ID, burner, proposed name, proposed symbol, cleaned image hash, and a random salt. A valid active burn is required for any metadata change. Burns never reverse.
+Each commitment binds `chainid`, token address, burn ID, burner, exact burn amount, proposed name, proposed symbol, cleaned image hash, and a random salt. A valid current-record burn is required for any metadata change. Burns never reverse, including when a later challenger supersedes a pending proposal.
 
-`VOIDLaunch` performs the genesis allocation atomically: 90% is consumed by the configured Uniswap Liquidity Launcher strategy and 10% enters the Safe-beneficiary vesting wallet. The launcher contract becomes the token owner only long enough to initiate two-step ownership transfer to the Safe; it exposes no owner-call forwarding surface.
+`VOIDLaunch` performs the genesis allocation atomically: 90% enters the continuous buyer-funded curve and 10% enters the Safe-beneficiary vesting wallet. The launch contract becomes the token owner only long enough to initiate two-step ownership transfer to the Safe; it exposes no owner-call forwarding surface. The curve can trade indefinitely, closes automatically at the ETH threshold, and only the Safe can call its migration adapter.
 
 ## Private moderation data
 
@@ -26,8 +26,8 @@ Alchemy signatures are checked over the raw body. Receipt IDs are stored uniquel
 - IPFS publication is effectively irreversible; moderation must happen before pinning.
 - A prepared Safe transaction is not approval until its threshold executes and the event confirms.
 - Technical review does not evaluate securities, trademark, consumer-protection, tax, sanctions, or money-transmission obligations.
-- LBP configuration is economic code. Incorrect starting price, duration, reserve allocation, recipients, or migration ranges can prevent migration or cause loss; Uniswap explicitly requires integrators to validate every parameter.
+- Bonding-curve and migration configuration is economic code. The virtual reserve controls price and slippage; the threshold controls when trading closes; a faulty migration adapter can strand or lose funds. All three require independent review and full Sepolia lifecycle tests.
 
 ## Static-analysis baseline
 
-Slither runs clean across 101 non-timestamp detectors. Its timestamp detector flags the explicit 72-hour expiry and two-minute cooldown comparisons; those comparisons are the intended protocol mechanic, tolerate normal Base timestamp drift, and never determine token transfers outside the fixed burn or create value for the block producer. An independent review remains a Mainnet gate.
+Re-run Slither after the competitive-burn and continuous-curve changes. The previously recorded static-analysis result applies only to the superseded fixed-slot implementation. An independent review remains a Mainnet gate.

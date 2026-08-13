@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { encodeFunctionData } from "viem";
 import { getAdminEmail, isSameOrigin } from "@/lib/auth";
 import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { getPublicClient } from "@/lib/chain";
 import { getDb, hasDatabase } from "@/lib/db";
 import { renameRequests } from "@/lib/db/schema";
 import { publishApprovedMetadata } from "@/lib/pinata";
@@ -24,6 +25,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const address = configuredContractAddress();
     if (!address) return Response.json({ error: "Contract is not configured" }, { status: 503 });
     try {
+      const slot = await getPublicClient().readContract({ address, abi: voidCoinAbi, functionName: "activeSlot" });
+      if (slot.burnId !== proposal.burnId || slot.burner.toLowerCase() !== proposal.wallet || slot.burnAmount !== proposal.burnAmount) {
+        await getDb().update(renameRequests).set({ status: "superseded", updatedAt: new Date() }).where(eq(renameRequests.id, id));
+        return Response.json({ error: "A higher burn record has superseded this proposal." }, { status: 409 });
+      }
       const published = await publishApprovedMetadata({ blobUrl: proposal.imageBlobUrl, name: proposal.proposedName, symbol: proposal.proposedSymbol, requestId: proposal.id });
       const calldata = encodeFunctionData({
         abi: voidCoinAbi,

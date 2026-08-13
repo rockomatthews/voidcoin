@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { decodeEventLog, isHash, type Hex } from "viem";
 import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
@@ -32,11 +32,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (args.burner.toLowerCase() !== proposal.wallet || args.commitment.toLowerCase() !== proposal.commitment.toLowerCase() || args.burnId !== proposal.burnId) {
       throw new Error("Burn event does not match this private proposal");
     }
+    if (event.eventName === "RenameBurned" && event.args.amount !== proposal.burnAmount) {
+      throw new Error("Burn amount does not match this private proposal");
+    }
 
-    const expiresAt = event.eventName === "RenameBurned" ? new Date(Number(event.args.expiresAt) * 1000) : proposal.expiresAt;
-    await getDb().update(renameRequests).set({ transactionHash: body.transactionHash, status: "pending_review", expiresAt, updatedAt: new Date() }).where(eq(renameRequests.id, id));
+    if (event.eventName === "RenameBurned") {
+      await getDb().update(renameRequests).set({ status: "superseded", updatedAt: new Date() }).where(and(
+        ne(renameRequests.id, id),
+        inArray(renameRequests.status, ["pending_review", "changes_requested", "ready_for_safe"]),
+      ));
+    }
+    await getDb().update(renameRequests).set({ transactionHash: body.transactionHash, status: "pending_review", updatedAt: new Date() }).where(eq(renameRequests.id, id));
     await sendModeratorAlert({ requestId: id, wallet: proposal.wallet, name: proposal.proposedName, symbol: proposal.proposedSymbol, burnId: proposal.burnId.toString() });
-    return Response.json({ ok: true, expiresAt: expiresAt?.toISOString() ?? null });
+    return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Burn verification failed" }, { status: 400 });
   }

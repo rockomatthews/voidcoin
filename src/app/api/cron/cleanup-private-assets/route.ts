@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const rows = await getDb().select({ url: proposalSubmissions.imageBlobUrl }).from(proposalSubmissions).innerJoin(renameRequests, and(
     eq(proposalSubmissions.requestId, renameRequests.id),
-    inArray(renameRequests.status, ["changes_requested", "expired"]),
+    inArray(renameRequests.status, ["changes_requested", "superseded"]),
     lt(proposalSubmissions.createdAt, cutoff),
   ));
   const urls = [...new Set(rows.map((row) => row.url))];

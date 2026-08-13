@@ -16,6 +16,7 @@ export const proposalSchema = z.object({
     .max(15)
     .regex(/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/, "Use letters, numbers, and single spaces only"),
   symbol: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/, "Use letters and numbers only"),
+  burnAmount: z.string().regex(/^[0-9]+$/, "Burn amount must be a whole number of VOID"),
   email: z.string().email().optional().or(z.literal("")),
 });
 
@@ -24,6 +25,7 @@ export interface CommitmentInput {
   contractAddress: Address;
   burnId: bigint;
   burner: Address;
+  burnAmount: bigint;
   name: string;
   symbol: string;
   imageHash: Hex;
@@ -33,12 +35,13 @@ export interface CommitmentInput {
 export function createCommitment(input: CommitmentInput): Hex {
   return keccak256(
     encodeAbiParameters(
-      parseAbiParameters("uint256 chainId, address token, uint256 burnId, address burner, string name, string symbol, bytes32 imageHash, bytes32 salt"),
+      parseAbiParameters("uint256 chainId, address token, uint256 burnId, address burner, uint256 burnAmount, string name, string symbol, bytes32 imageHash, bytes32 salt"),
       [
         BigInt(input.chainId),
         input.contractAddress,
         input.burnId,
         input.burner,
+        input.burnAmount,
         input.name,
         input.symbol,
         input.imageHash,

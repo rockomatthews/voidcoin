@@ -6,38 +6,34 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /// @title VOIDCoin
-/// @notice Fixed-supply ERC-20 whose public identity changes only after an exact burn and Safe approval.
+/// @notice Fixed-supply ERC-20 whose public identity is controlled by a competitive burn record and Safe approval.
 contract VOIDCoin is ERC20, Ownable2Step {
     uint256 public constant ORIGINAL_SUPPLY = 1_000_000_000 ether;
-    uint256 public constant BURN_AMOUNT = 1_000_000 ether;
-    uint256 public constant SLOT_DURATION = 72 hours;
-    uint256 public constant RENAME_COOLDOWN = 2 minutes;
+    uint256 public constant MINIMUM_INCREMENT = 1_000_000 ether;
     uint256 public constant LAUNCH_ALLOCATION = 900_000_000 ether;
     uint256 public constant TREASURY_ALLOCATION = 100_000_000 ether;
 
     struct RenameSlot {
         uint256 burnId;
         address burner;
+        uint256 burnAmount;
         bytes32 commitment;
         uint64 openedAt;
-        uint64 expiresAt;
     }
 
     string private _currentName;
     string private _currentSymbol;
     string private _currentTokenURI;
     uint256 public currentBurnId;
-    uint64 public lastSkinChangeAt;
+    uint256 public recordBurn;
+    address public recordBurner;
     bool public renamePaused;
     RenameSlot private _activeSlot;
 
     error RenamePaused();
-    error SlotAlreadyActive();
     error NoActiveSlot();
-    error SlotExpired();
-    error SlotNotExpired();
-    error CooldownActive();
     error NotActiveBurner();
+    error BurnBelowRecord();
     error ZeroCommitment();
     error InvalidName();
     error InvalidSymbol();
@@ -46,7 +42,11 @@ contract VOIDCoin is ERC20, Ownable2Step {
     error InvalidAllocationAddress();
 
     event RenameBurned(
-        uint256 indexed burnId, address indexed burner, bytes32 indexed commitment, uint256 amount, uint256 expiresAt
+        uint256 indexed burnId,
+        address indexed burner,
+        bytes32 indexed commitment,
+        uint256 amount,
+        uint256 previousRecord
     );
     event CommitmentReplaced(uint256 indexed burnId, address indexed burner, bytes32 indexed commitment);
     event SkinChanged(
@@ -57,7 +57,6 @@ contract VOIDCoin is ERC20, Ownable2Step {
         string metadataURI,
         bytes32 imageHash
     );
-    event RenameSlotExpired(uint256 indexed burnId, address indexed burner);
     event RenamePauseChanged(bool paused);
 
     constructor(
@@ -103,43 +102,49 @@ contract VOIDCoin is ERC20, Ownable2Step {
         return currentBurnId + 1;
     }
 
-    function cooldownEndsAt() public view returns (uint256) {
-        return lastSkinChangeAt > 0 ? uint256(lastSkinChangeAt) + RENAME_COOLDOWN : 0;
+    function nextBurnRequirement() public view returns (uint256) {
+        return recordBurn + MINIMUM_INCREMENT;
     }
 
     function proposalCommitment(
         uint256 burnId,
         address burner,
+        uint256 burnAmount,
         string calldata proposedName,
         string calldata proposedSymbol,
         bytes32 imageHash,
         bytes32 salt
     ) public view returns (bytes32) {
         return keccak256(
-            abi.encode(block.chainid, address(this), burnId, burner, proposedName, proposedSymbol, imageHash, salt)
+            abi.encode(
+                block.chainid, address(this), burnId, burner, burnAmount, proposedName, proposedSymbol, imageHash, salt
+            )
         );
     }
 
-    function burnForRename(bytes32 commitment) external {
+    /// @notice Burns a new all-time record amount and replaces any pending leader.
+    /// @dev A displaced leader's burn remains permanent, but only the current record holder can be approved.
+    function burnForRename(uint256 amount, bytes32 commitment) external {
         if (renamePaused) revert RenamePaused();
-        if (_activeSlot.burner != address(0)) revert SlotAlreadyActive();
         if (commitment == bytes32(0)) revert ZeroCommitment();
-        if (lastSkinChangeAt > 0 && block.timestamp < cooldownEndsAt()) revert CooldownActive();
+        uint256 requiredAmount = nextBurnRequirement();
+        if (amount < requiredAmount) revert BurnBelowRecord();
 
+        uint256 previousRecord = recordBurn;
         uint256 burnId = ++currentBurnId;
         uint64 openedAt = uint64(block.timestamp);
-        uint64 expiresAt = uint64(block.timestamp + SLOT_DURATION);
 
-        _burn(msg.sender, BURN_AMOUNT);
-        _activeSlot = RenameSlot(burnId, msg.sender, commitment, openedAt, expiresAt);
+        _burn(msg.sender, amount);
+        recordBurn = amount;
+        recordBurner = msg.sender;
+        _activeSlot = RenameSlot(burnId, msg.sender, amount, commitment, openedAt);
 
-        emit RenameBurned(burnId, msg.sender, commitment, BURN_AMOUNT, expiresAt);
+        emit RenameBurned(burnId, msg.sender, commitment, amount, previousRecord);
     }
 
     function replaceCommitment(bytes32 newCommitment) external {
         RenameSlot memory slot = _activeSlot;
         if (slot.burner == address(0)) revert NoActiveSlot();
-        if (block.timestamp >= slot.expiresAt) revert SlotExpired();
         if (msg.sender != slot.burner) revert NotActiveBurner();
         if (newCommitment == bytes32(0)) revert ZeroCommitment();
 
@@ -157,31 +162,22 @@ contract VOIDCoin is ERC20, Ownable2Step {
     ) external onlyOwner {
         RenameSlot memory slot = _activeSlot;
         if (slot.burner == address(0)) revert NoActiveSlot();
-        if (block.timestamp >= slot.expiresAt) revert SlotExpired();
         if (slot.burnId != burnId) revert CommitmentMismatch();
+        if (slot.burner != recordBurner || slot.burnAmount != recordBurn) revert CommitmentMismatch();
         if (!_validName(bytes(proposedName))) revert InvalidName();
         if (!_validSymbol(bytes(proposedSymbol))) revert InvalidSymbol();
         if (bytes(metadataURI).length == 0 || bytes(metadataURI).length > 512) revert InvalidMetadataURI();
 
-        bytes32 expected = proposalCommitment(burnId, slot.burner, proposedName, proposedSymbol, imageHash, salt);
+        bytes32 expected =
+            proposalCommitment(burnId, slot.burner, slot.burnAmount, proposedName, proposedSymbol, imageHash, salt);
         if (expected != slot.commitment) revert CommitmentMismatch();
 
         _currentName = proposedName;
         _currentSymbol = proposedSymbol;
         _currentTokenURI = metadataURI;
-        lastSkinChangeAt = uint64(block.timestamp);
         delete _activeSlot;
 
         emit SkinChanged(burnId, slot.burner, proposedName, proposedSymbol, metadataURI, imageHash);
-    }
-
-    function expireSlot() external {
-        RenameSlot memory slot = _activeSlot;
-        if (slot.burner == address(0)) revert NoActiveSlot();
-        if (block.timestamp < slot.expiresAt) revert SlotNotExpired();
-
-        delete _activeSlot;
-        emit RenameSlotExpired(slot.burnId, slot.burner);
     }
 
     function setRenamePaused(bool paused) external onlyOwner {

@@ -1,8 +1,9 @@
-CREATE TYPE "request_status" AS ENUM ('draft', 'awaiting_burn', 'pending_review', 'changes_requested', 'ready_for_safe', 'approved', 'expired');
+CREATE TYPE "request_status" AS ENUM ('draft', 'awaiting_burn', 'pending_review', 'changes_requested', 'ready_for_safe', 'approved', 'superseded');
 
 CREATE TABLE "rename_requests" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-  "burn_id" bigint NOT NULL,
+	"burn_id" bigint NOT NULL,
+	"burn_amount" bigint NOT NULL,
   "wallet" text NOT NULL,
   "contact_email" text,
   "proposed_name" text NOT NULL,
@@ -18,7 +19,6 @@ CREATE TABLE "rename_requests" (
   "moderator_note" text,
   "safe_calldata" text,
   "metadata_uri" text,
-  "expires_at" timestamp with time zone,
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

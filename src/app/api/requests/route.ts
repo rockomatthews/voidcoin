@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { put } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
-import { verifyMessage, type Address, type Hex } from "viem";
+import { parseUnits, verifyMessage, type Address, type Hex } from "viem";
 import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { verifyWalletChallenge } from "@/lib/auth";
 import { getPublicClient } from "@/lib/chain";
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   if (!hasDatabase()) return Response.json({ requests: [] });
   const wallet = new URL(request.url).searchParams.get("wallet")?.toLowerCase();
   if (!wallet) return Response.json({ error: "Wallet is required" }, { status: 400 });
-  const rows = await getDb().select({ id: renameRequests.id, status: renameRequests.status, proposedName: renameRequests.proposedName, proposedSymbol: renameRequests.proposedSymbol, moderatorNote: renameRequests.moderatorNote, expiresAt: renameRequests.expiresAt }).from(renameRequests).where(eq(renameRequests.wallet, wallet));
+  const rows = await getDb().select({ id: renameRequests.id, status: renameRequests.status, proposedName: renameRequests.proposedName, proposedSymbol: renameRequests.proposedSymbol, moderatorNote: renameRequests.moderatorNote, burnAmount: renameRequests.burnAmount }).from(renameRequests).where(eq(renameRequests.wallet, wallet));
   return Response.json({ requests: rows });
 }
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid multipart request" }, { status: 400 });
   }
 
-  const parsed = proposalSchema.safeParse({ wallet: form.get("wallet"), name: form.get("name"), symbol: form.get("symbol"), email: form.get("email") ?? "" });
+  const parsed = proposalSchema.safeParse({ wallet: form.get("wallet"), name: form.get("name"), symbol: form.get("symbol"), burnAmount: form.get("burnAmount"), email: form.get("email") ?? "" });
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid proposal" }, { status: 400 });
   const wallet = parsed.data.wallet as Address;
   const message = String(form.get("message") ?? "");
@@ -49,22 +49,26 @@ export async function POST(request: Request) {
   try {
     const sanitized = await sanitizeImage(image);
     const client = getPublicClient();
-    const [nextBurnId, slot] = await Promise.all([
+    const [nextBurnId, nextBurnRequirement, slot] = await Promise.all([
       client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "nextBurnId" }),
+      client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "nextBurnRequirement" }),
       client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "activeSlot" }),
     ]);
     const isActive = slot.burner !== "0x0000000000000000000000000000000000000000";
     const isReplacement = isActive && slot.burner.toLowerCase() === wallet.toLowerCase();
-    if (isActive && !isReplacement) {
-      return Response.json({ error: "Another burner currently controls the rename slot" }, { status: 409 });
-    }
 
     const burnId = isReplacement ? slot.burnId : nextBurnId;
+    const requestedBurnAmount = parseUnits(parsed.data.burnAmount, 18);
+    const burnAmount = isReplacement ? slot.burnAmount : requestedBurnAmount;
+    if (!isReplacement && burnAmount < nextBurnRequirement) {
+      return Response.json({ error: `The record moved. Burn at least ${nextBurnRequirement / 10n ** 18n} VOID.` }, { status: 409 });
+    }
     const salt = `0x${randomBytes(32).toString("hex")}` as Hex;
-    const commitment = createCommitment({ chainId: configuredChainId(), contractAddress, burnId, burner: wallet, name: parsed.data.name, symbol: parsed.data.symbol, imageHash: sanitized.hash, salt });
+    const commitment = createCommitment({ chainId: configuredChainId(), contractAddress, burnId, burner: wallet, burnAmount, name: parsed.data.name, symbol: parsed.data.symbol, imageHash: sanitized.hash, salt });
     const blob = await put(`requests/${wallet.toLowerCase()}/${burnId}.${sanitized.extension}`, sanitized.bytes, { access: "private", contentType: sanitized.contentType, addRandomSuffix: true, cacheControlMaxAge: 60 });
     const values = {
       wallet: wallet.toLowerCase(),
+      burnAmount,
       contactEmail: parsed.data.email || null,
       proposedName: parsed.data.name,
       proposedSymbol: parsed.data.symbol,
@@ -91,7 +95,7 @@ export async function POST(request: Request) {
 
     await getDb().insert(proposalSubmissions).values({ requestId, proposedName: parsed.data.name, proposedSymbol: parsed.data.symbol, imageBlobUrl: blob.url, imageHash: sanitized.hash, commitment });
 
-    return Response.json({ requestId, burnId: burnId.toString(), commitment, mode: isReplacement ? "replace" : "burn" });
+    return Response.json({ requestId, burnId: burnId.toString(), burnAmount: burnAmount.toString(), commitment, mode: isReplacement ? "replace" : "burn" });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Proposal preparation failed" }, { status: 400 });
   }

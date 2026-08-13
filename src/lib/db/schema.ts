@@ -7,7 +7,7 @@ export const requestStatus = pgEnum("request_status", [
   "changes_requested",
   "ready_for_safe",
   "approved",
-  "expired",
+  "superseded",
 ]);
 
 export const renameRequests = pgTable(
@@ -15,6 +15,7 @@ export const renameRequests = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     burnId: bigint("burn_id", { mode: "bigint" }).notNull(),
+    burnAmount: bigint("burn_amount", { mode: "bigint" }).notNull(),
     wallet: text("wallet").notNull(),
     contactEmail: text("contact_email"),
     proposedName: text("proposed_name").notNull(),
@@ -30,7 +31,6 @@ export const renameRequests = pgTable(
     moderatorNote: text("moderator_note"),
     safeCalldata: text("safe_calldata"),
     metadataURI: text("metadata_uri"),
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -1,5 +1,7 @@
 import { BurnTerminal } from "@/components/burn-terminal";
+import { BuyVoid } from "@/components/buy-void";
 import { IdentityGallery } from "@/components/identity-gallery";
+import { LiveState } from "@/components/live-state";
 import { WalletButton } from "@/components/wallet-button";
 
 export default function Home() {
@@ -12,12 +14,15 @@ export default function Home() {
 
       <section className="void-hero" id="top" aria-labelledby="void-title">
         <div className="void-orbit" aria-hidden="true"><i /><i /><i /><b>VØ</b></div>
-        <p className="void-label">THE PRICE OF A NEW IDENTITY</p>
-        <h1 id="void-title"><strong>1,000,000</strong><span>VOID</span></h1>
-        <p className="void-message">Own and permanently burn this amount to request a new <b>name</b>, <b>ticker</b>, and <b>picture</b>.</p>
+        <p className="void-label">OUTBURN THE LAST HOLDER. TAKE CONTROL.</p>
+        <h1 id="void-title"><strong>VOID</strong><span>THE IDENTITY NEVER STAYS STILL</span></h1>
+        <p className="void-message">Buy VOID, beat the all-time burn record by at least <b>1,000,000</b>, and claim the right to request a new <b>name</b>, <b>ticker</b>, and <b>picture</b>.</p>
+        <LiveState />
         <div className="void-attributes" aria-label="Changeable token identity"><span>NAME</span><span>TICKER</span><span>PICTURE</span></div>
-        <p className="void-note">Every burn is irreversible. Every change requires approval.</p>
+        <p className="void-note">Every burn is irreversible. A higher record can take control before approval. Every identity change requires moderation.</p>
       </section>
+
+      <BuyVoid />
 
       <IdentityGallery />
 

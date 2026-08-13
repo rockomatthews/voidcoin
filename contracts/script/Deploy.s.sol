@@ -5,22 +5,20 @@ import {Script, console2} from "forge-std/Script.sol";
 import {VestingWallet} from "@openzeppelin/contracts/finance/VestingWallet.sol";
 import {VOIDCoin} from "../src/VOIDCoin.sol";
 import {VOIDLaunch} from "../src/VOIDLaunch.sol";
+import {VOIDBondingCurve} from "../src/VOIDBondingCurve.sol";
 
 contract DeployVOIDCoin is Script {
     function run() external returns (VOIDCoin token, VestingWallet vestingWallet) {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address safe = vm.envAddress("SAFE_ADDRESS");
-        address launcherAddress = vm.envAddress("UNISWAP_LIQUIDITY_LAUNCHER");
-        address lbpStrategy = vm.envAddress("UNISWAP_LBP_STRATEGY");
-        address permit2Address = vm.envAddress("PERMIT2_ADDRESS");
-        bytes memory lbpConfigData = vm.envBytes("LBP_CONFIG_DATA");
-        bytes32 launchSalt = vm.envBytes32("LAUNCH_SALT");
+        address migrationTarget = vm.envAddress("MIGRATION_TARGET");
+        uint256 virtualEthReserve = vm.envUint("VIRTUAL_ETH_RESERVE");
+        uint256 graduationThreshold = vm.envUint("GRADUATION_THRESHOLD");
         string memory initialTokenURI = vm.envOr("INITIAL_TOKEN_URI", string(""));
 
         vm.startBroadcast(deployerKey);
-        VOIDLaunch launch = new VOIDLaunch(
-            safe, launcherAddress, lbpStrategy, permit2Address, initialTokenURI, lbpConfigData, launchSalt
-        );
+        VOIDLaunch launch =
+            new VOIDLaunch(safe, migrationTarget, virtualEthReserve, graduationThreshold, initialTokenURI);
         vm.stopBroadcast();
 
         token = launch.token();
@@ -28,9 +26,12 @@ contract DeployVOIDCoin is Script {
 
         console2.log("VOIDCoin:", address(token));
         console2.log("Treasury vesting wallet:", address(vestingWallet));
-        console2.log("Uniswap Liquidity Launcher:", launcherAddress);
-        console2.log("Uniswap LBP strategy:", lbpStrategy);
+        VOIDBondingCurve curve = launch.bondingCurve();
+        console2.log("Continuous bonding curve:", address(curve));
+        console2.log("Migration target:", migrationTarget);
+        console2.log("Virtual ETH reserve:", virtualEthReserve);
+        console2.log("Graduation threshold:", graduationThreshold);
         console2.log("Pending Safe owner:", safe);
-        console2.log("Rename slots paused:", token.renamePaused());
+        console2.log("Competitive renaming paused:", token.renamePaused());
     }
 }
