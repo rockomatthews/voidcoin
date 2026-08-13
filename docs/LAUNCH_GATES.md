@@ -14,7 +14,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 ## 2. Local Base Mainnet-fork rehearsal
 
 - Rehearse the deployment against a local Base Mainnet fork without publishing contracts to another chain.
-- Exercise the production Safe ownership sequence with local impersonation and complete the two-step ownership acceptance.
+- Exercise direct production Safe ownership from construction with local impersonation.
 - Exercise approval, requested changes, replacement commitment, successive record challenges, wrong network, rejected transaction, and insufficient balance.
 - Confirm the deployer retains no owner authority.
 - Test event indexing, email idempotency, private assets, IPFS publication, and decoded Safe calldata.
@@ -29,17 +29,18 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 
 - Obtain legal/name clearance or explicitly accept the VOIDCOIN / VOID collision.
 - Approve the production Safe address and threshold.
-- Approve the 10% vesting beneficiary and exact start date.
-- Deploy with rename slots paused, verify source, transfer ownership, and have the Safe call `acceptOwnership()`.
+- Approve the 2% creator treasury beneficiary; verify vesting cannot start before successful graduation and then runs for 12 months.
+- Deploy with rename slots paused and verify source. Confirm the Safe owns the token and curve immediately and the deployer never holds protocol authority.
 - Independently verify bytecode, allocation, vesting, and zero deployer authority.
 
 ## 5. Buyer-funded continuous bonding curve
 
 - Explicitly approve the virtual ETH reserve, buyer-funded graduation threshold, slippage behavior, remaining-token handling, migration target, pool fee, price range, recovery recipient, and position recipient. There is no auction duration or end price.
-- Confirm the continuous curve receives exactly 900,000,000 VOID and the 12-month vesting wallet receives exactly 100,000,000 VOID.
+- Confirm the continuous curve receives exactly 980,000,000 VOID and the graduation-triggered 12-month treasury receives exactly 20,000,000 VOID.
+- Confirm the immutable curve fee is exactly 1% on buys and 1% on sells, with fees retained in accounted reserves.
 - Buyers—not the creator—supply every real ETH deposit. Confirm the reviewed migration target moves that ETH plus remaining VOID into the intended Uniswap pool.
 - Set the LP position recipient to an approved permanent or time-locked custody contract and verify the resulting position ownership after migration.
-- Exercise the curve's buy, sell, threshold close, failed migration rollback, and successful Uniswap migration paths on a local Base Mainnet fork before publishing the production deployment.
+- Exercise buy, sell, forced-asset isolation, threshold eligibility, continued trading after threshold, failed migration rollback, and successful venue migration on a local Base Mainnet fork before publishing the production deployment.
 
 ## 6. Production services
 

@@ -16,7 +16,8 @@ describe("proposal validation", () => {
   });
 
   it("creates a stable typed commitment", () => {
-    const input = { chainId: 8453, contractAddress: contract, burnId: 1n, burner: wallet, burnAmount: 1_000_000n * 10n ** 18n, name: "VOIDCOIN", symbol: "VOID", imageHash: hash, salt };
+    const input = { chainId: 8453, contractAddress: contract, burnId: 1n, burner: wallet, burnAmount: 1_000_000n * 10n ** 18n, name: "VOIDCOIN", symbol: "VOID", imageHash: hash, metadataURIHash: hash, salt };
     expect(createCommitment(input)).toBe(createCommitment(input));
+    expect(createCommitment(input)).not.toBe(createCommitment({ ...input, metadataURIHash: salt }));
   });
 });

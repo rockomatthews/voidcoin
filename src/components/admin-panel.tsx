@@ -27,13 +27,16 @@ export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] 
     const response = await fetch(`/api/admin/requests/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, note }) });
     const result = await response.json();
     if (!response.ok) return setOutput(result.error ?? "Action failed");
-    if (result.safeTransaction) {
-      setOutput(`SAFE TRANSACTION READY\nTO: ${result.safeTransaction.to}\nVALUE: 0\nDATA: ${result.safeTransaction.data}`);
-      await navigator.clipboard?.writeText(result.safeTransaction.data).catch(() => undefined);
+    if (result.safeTransactions) {
+      const rendered = result.safeTransactions.map((transaction: { description: string; to: string; data: string }, index: number) => `${index + 1}. ${transaction.description}\nTO: ${transaction.to}\nVALUE: 0\nDATA: ${transaction.data}`).join("\n\n");
+      setOutput(`SAFE BATCH READY — EXECUTE IN ORDER\n${rendered}`);
+      await navigator.clipboard?.writeText(rendered).catch(() => undefined);
+    } else if (result.requiresBurnerAuthorization) {
+      setOutput("CONTENT APPROVED AND PUBLISHED\nThe burner must now authorize the final IPFS metadata commitment. This requires no additional burn. Prepare the Safe batch after that transaction confirms.");
     } else {
       setOutput("Changes requested. The record holder can replace the private proposal without another burn unless a higher record takes control.");
     }
-    setRequests((current) => current.map((item) => item.id === id ? { ...item, status: action === "approve" ? "ready_for_safe" : "changes_requested" } : item));
+    setRequests((current) => current.map((item) => item.id === id ? { ...item, status: result.safeTransactions ? "ready_for_safe" : "changes_requested" } : item));
   }
 
   return (

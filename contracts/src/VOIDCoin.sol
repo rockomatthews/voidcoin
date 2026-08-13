@@ -10,8 +10,10 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 contract VOIDCoin is ERC20, Ownable2Step {
     uint256 public constant ORIGINAL_SUPPLY = 1_000_000_000 ether;
     uint256 public constant MINIMUM_INCREMENT = 1_000_000 ether;
-    uint256 public constant LAUNCH_ALLOCATION = 900_000_000 ether;
-    uint256 public constant TREASURY_ALLOCATION = 100_000_000 ether;
+    uint256 public constant LAUNCH_ALLOCATION = 980_000_000 ether;
+    uint256 public constant TREASURY_ALLOCATION = 20_000_000 ether;
+    uint64 public constant SLOT_TTL = 72 hours;
+    uint64 public constant APPROVAL_LOCK_DURATION = 6 hours;
 
     struct RenameSlot {
         uint256 burnId;
@@ -19,6 +21,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
         uint256 burnAmount;
         bytes32 commitment;
         uint64 openedAt;
+        uint64 lockedUntil;
     }
 
     string private _currentName;
@@ -40,6 +43,11 @@ contract VOIDCoin is ERC20, Ownable2Step {
     error InvalidMetadataURI();
     error CommitmentMismatch();
     error InvalidAllocationAddress();
+    error SlotLocked();
+    error SlotExpired();
+    error SlotNotExpired();
+    error AlreadyLocked();
+    error RenouncingDisabled();
 
     event RenameBurned(
         uint256 indexed burnId,
@@ -58,6 +66,8 @@ contract VOIDCoin is ERC20, Ownable2Step {
         bytes32 imageHash
     );
     event RenamePauseChanged(bool paused);
+    event RenameSlotLocked(uint256 indexed burnId, uint64 lockedUntil);
+    event RenameSlotExpired(uint256 indexed burnId, address indexed burner);
 
     constructor(
         address initialOwner,
@@ -113,11 +123,21 @@ contract VOIDCoin is ERC20, Ownable2Step {
         string calldata proposedName,
         string calldata proposedSymbol,
         bytes32 imageHash,
+        bytes32 metadataURIHash,
         bytes32 salt
     ) public view returns (bytes32) {
         return keccak256(
             abi.encode(
-                block.chainid, address(this), burnId, burner, burnAmount, proposedName, proposedSymbol, imageHash, salt
+                block.chainid,
+                address(this),
+                burnId,
+                burner,
+                burnAmount,
+                proposedName,
+                proposedSymbol,
+                imageHash,
+                metadataURIHash,
+                salt
             )
         );
     }
@@ -125,6 +145,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     function burnForRename(uint256 expectedAmount, bytes32 commitment) external {
         if (renamePaused) revert RenamePaused();
         if (commitment == bytes32(0)) revert ZeroCommitment();
+        if (_activeSlot.lockedUntil != 0 && block.timestamp <= _activeSlot.lockedUntil) revert SlotLocked();
 
         uint256 amount = nextBurnRequirement();
         if (expectedAmount != amount) revert BurnRequirementChanged();
@@ -135,7 +156,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
         _burn(msg.sender, amount);
         recordBurn = amount;
         recordBurner = msg.sender;
-        _activeSlot = RenameSlot(burnId, msg.sender, amount, commitment, openedAt);
+        _activeSlot = RenameSlot(burnId, msg.sender, amount, commitment, openedAt, 0);
 
         emit RenameBurned(burnId, msg.sender, commitment, amount, previousRecord);
     }
@@ -145,9 +166,32 @@ contract VOIDCoin is ERC20, Ownable2Step {
         if (slot.burner == address(0)) revert NoActiveSlot();
         if (msg.sender != slot.burner) revert NotActiveBurner();
         if (newCommitment == bytes32(0)) revert ZeroCommitment();
+        if (slot.lockedUntil != 0 && block.timestamp <= slot.lockedUntil) revert SlotLocked();
+        if (block.timestamp > slot.openedAt + SLOT_TTL) revert SlotExpired();
 
         _activeSlot.commitment = newCommitment;
         emit CommitmentReplaced(slot.burnId, slot.burner, newCommitment);
+    }
+
+    function lockRenameSlot(uint256 burnId) external onlyOwner {
+        RenameSlot memory slot = _activeSlot;
+        if (slot.burner == address(0)) revert NoActiveSlot();
+        if (slot.burnId != burnId) revert CommitmentMismatch();
+        if (block.timestamp > slot.openedAt + SLOT_TTL) revert SlotExpired();
+        if (slot.lockedUntil != 0) revert AlreadyLocked();
+        uint64 lockedUntil = uint64(block.timestamp + APPROVAL_LOCK_DURATION);
+        _activeSlot.lockedUntil = lockedUntil;
+        emit RenameSlotLocked(burnId, lockedUntil);
+    }
+
+    function expireSlot() external {
+        RenameSlot memory slot = _activeSlot;
+        if (slot.burner == address(0)) revert NoActiveSlot();
+        uint256 expiry = uint256(slot.openedAt) + SLOT_TTL;
+        if (slot.lockedUntil > expiry) expiry = slot.lockedUntil;
+        if (block.timestamp <= expiry) revert SlotNotExpired();
+        delete _activeSlot;
+        emit RenameSlotExpired(slot.burnId, slot.burner);
     }
 
     function approveRename(
@@ -161,13 +205,21 @@ contract VOIDCoin is ERC20, Ownable2Step {
         RenameSlot memory slot = _activeSlot;
         if (slot.burner == address(0)) revert NoActiveSlot();
         if (slot.burnId != burnId) revert CommitmentMismatch();
-        if (slot.burner != recordBurner || slot.burnAmount != recordBurn) revert CommitmentMismatch();
+        if (block.timestamp > slot.openedAt + SLOT_TTL && block.timestamp > slot.lockedUntil) revert SlotExpired();
         if (!_validName(bytes(proposedName))) revert InvalidName();
         if (!_validSymbol(bytes(proposedSymbol))) revert InvalidSymbol();
         if (bytes(metadataURI).length == 0 || bytes(metadataURI).length > 512) revert InvalidMetadataURI();
 
-        bytes32 expected =
-            proposalCommitment(burnId, slot.burner, slot.burnAmount, proposedName, proposedSymbol, imageHash, salt);
+        bytes32 expected = proposalCommitment(
+            burnId,
+            slot.burner,
+            slot.burnAmount,
+            proposedName,
+            proposedSymbol,
+            imageHash,
+            keccak256(bytes(metadataURI)),
+            salt
+        );
         if (expected != slot.commitment) revert CommitmentMismatch();
 
         _currentName = proposedName;
@@ -181,6 +233,10 @@ contract VOIDCoin is ERC20, Ownable2Step {
     function setRenamePaused(bool paused) external onlyOwner {
         renamePaused = paused;
         emit RenamePauseChanged(paused);
+    }
+
+    function renounceOwnership() public pure override(Ownable) {
+        revert RenouncingDisabled();
     }
 
     function _validName(bytes memory value) private pure returns (bool) {

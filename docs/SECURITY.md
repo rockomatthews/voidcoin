@@ -4,13 +4,13 @@
 
 The owner is intended to be a multisignature Safe. It may apply a commitment-matched skin and pause or resume opening new rename slots. It cannot mint, confiscate, blacklist, tax, or pause token transfers. The contract is non-upgradeable. Ownership transfer uses `Ownable2Step`.
 
-Each commitment binds `chainid`, token address, burn ID, burner, exact burn amount, proposed name, proposed symbol, cleaned image hash, and a random salt. A valid current-record burn is required for any metadata change. Burns never reverse, including when a later challenger supersedes a pending proposal.
+Each final commitment binds `chainid`, token address, burn ID, burner, exact burn amount, proposed name, proposed symbol, cleaned image hash, exact metadata URI hash, and a random salt. The burner authorizes the final IPFS URI with `replaceCommitment` after moderation and publication; this requires no additional burn. A valid current-record burn is required for any metadata change. Burns never reverse, including when a later challenger supersedes a pending proposal.
 
 The caller cannot select a cheaper or more expensive burn. `burnForRename` verifies the expected amount against `recordBurn + 1,000,000 VOID`, making the sequence deterministic: 1M, 2M, 3M, and onward. A stale transaction reverts before burning.
 
 `npm run contracts:security` is the canonical static-analysis command. It analyzes `VOIDLaunch` and its entire dependency graph with Slither, direct `solc`, and the exact 0.8.30 compiler. This avoids the unresolved inheritance references produced by the current Foundry build-info ingestion path. The command fails closed when the expected compiler or Slither is unavailable, and CI runs it on every push and pull request.
 
-`VOIDLaunch` performs the genesis allocation atomically: 90% enters the continuous buyer-funded curve and 10% enters the Safe-beneficiary vesting wallet. The launch contract becomes the token owner only long enough to initiate two-step ownership transfer to the Safe; it exposes no owner-call forwarding surface. The curve can trade indefinitely, closes automatically at the ETH threshold, and only the Safe can call its migration adapter.
+`VOIDLaunch` performs the genesis allocation atomically: 98% enters the continuous buyer-funded curve and 2% enters a non-transferable creator-beneficiary vesting contract. Vesting starts only after successful graduation and runs linearly for 12 months. The production Safe is installed directly as token and curve owner; the launch contract never owns either. The curve charges 1% in each direction, accounts reserves internally, remains open after reaching the threshold, and closes only after a successful Safe-triggered migration. Failed migration calls roll back without closing trading.
 
 ## Private moderation data
 
@@ -30,8 +30,8 @@ Alchemy signatures are checked over the raw body. Receipt IDs are stored uniquel
 - IPFS publication is effectively irreversible; moderation must happen before pinning.
 - A prepared Safe transaction is not approval until its threshold executes and the event confirms.
 - Technical review does not evaluate securities, trademark, consumer-protection, tax, sanctions, or money-transmission obligations.
-- Bonding-curve and migration configuration is economic code. The virtual reserve controls price and slippage; the threshold controls when trading closes; a faulty migration adapter can strand or lose funds. All three require independent review and a complete local Base Mainnet-fork rehearsal.
+- Bonding-curve and migration configuration is economic code. The virtual reserve controls price and slippage; the threshold controls migration eligibility. A faulty migration adapter can still lose funds during a successful call, so its frozen bytecode, Base venue integration, and resulting position custody require independent review and a complete local Base Mainnet-fork rehearsal.
 
 ## Static-analysis baseline
 
-At commit `18e79a24576fe2a028bf17706342989e96fec0d8`, the canonical direct-`solc` command analyzed the complete 22-contract launch dependency graph with 101 non-timestamp detectors and reported zero findings without parser errors. An independent professional review and a later delta review of the frozen migration target and economic parameters remain Mainnet gates.
+The prior zero-finding Slither run at commit `18e79a24576fe2a028bf17706342989e96fec0d8` was only a syntactic baseline; the independent phase-one review subsequently demonstrated semantic Critical and High issues. Static analysis remains useful supporting evidence but is never security clearance. The remediated contracts, frozen migration target, parameters, Safe, and deployment calldata all require professional retesting before Mainnet.

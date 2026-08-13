@@ -1,11 +1,12 @@
 import { eq } from "drizzle-orm";
-import { encodeFunctionData } from "viem";
+import { encodeFunctionData, keccak256, toBytes } from "viem";
 import { getAdminEmail, isSameOrigin } from "@/lib/auth";
-import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
 import { getDb, hasDatabase } from "@/lib/db";
 import { renameRequests } from "@/lib/db/schema";
 import { publishApprovedMetadata } from "@/lib/pinata";
+import { createCommitment } from "@/lib/proposal";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!isSameOrigin(request)) return Response.json({ error: "Invalid request origin" }, { status: 403 });
@@ -30,14 +31,40 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         await getDb().update(renameRequests).set({ status: "superseded", updatedAt: new Date() }).where(eq(renameRequests.id, id));
         return Response.json({ error: "A higher burn record has superseded this proposal." }, { status: 409 });
       }
-      const published = await publishApprovedMetadata({ blobUrl: proposal.imageBlobUrl, name: proposal.proposedName, symbol: proposal.proposedSymbol, requestId: proposal.id });
+      if (!proposal.metadataURI) {
+        const published = await publishApprovedMetadata({ blobUrl: proposal.imageBlobUrl, name: proposal.proposedName, symbol: proposal.proposedSymbol, requestId: proposal.id });
+        const finalCommitment = createCommitment({
+          chainId: configuredChainId(),
+          contractAddress: address,
+          burnId: proposal.burnId,
+          burner: proposal.wallet as `0x${string}`,
+          burnAmount: proposal.burnAmount,
+          name: proposal.proposedName,
+          symbol: proposal.proposedSymbol,
+          imageHash: proposal.imageHash as `0x${string}`,
+          metadataURIHash: keccak256(toBytes(published.metadataURI)),
+          salt: proposal.salt as `0x${string}`,
+        });
+        await getDb().update(renameRequests).set({
+          status: "changes_requested",
+          metadataURI: published.metadataURI,
+          commitment: finalCommitment,
+          moderatorNote: "Content approved. Authorize the final IPFS metadata commitment from the burner wallet; no additional burn is required.",
+          updatedAt: new Date(),
+        }).where(eq(renameRequests.id, id));
+        return Response.json({ ok: true, requiresBurnerAuthorization: true, commitment: finalCommitment, metadataURI: published.metadataURI });
+      }
+      if (slot.commitment.toLowerCase() !== proposal.commitment.toLowerCase()) {
+        return Response.json({ error: "The burner must authorize the final IPFS metadata commitment before Safe approval." }, { status: 409 });
+      }
+      const lockCalldata = encodeFunctionData({ abi: voidCoinAbi, functionName: "lockRenameSlot", args: [proposal.burnId] });
       const calldata = encodeFunctionData({
         abi: voidCoinAbi,
         functionName: "approveRename",
-        args: [proposal.burnId, proposal.proposedName, proposal.proposedSymbol, published.metadataURI, proposal.imageHash as `0x${string}`, proposal.salt as `0x${string}`],
+        args: [proposal.burnId, proposal.proposedName, proposal.proposedSymbol, proposal.metadataURI, proposal.imageHash as `0x${string}`, proposal.salt as `0x${string}`],
       });
-      await getDb().update(renameRequests).set({ status: "ready_for_safe", metadataURI: published.metadataURI, safeCalldata: calldata, updatedAt: new Date() }).where(eq(renameRequests.id, id));
-      return Response.json({ ok: true, safeTransaction: { to: address, value: "0", data: calldata }, metadataURI: published.metadataURI });
+      await getDb().update(renameRequests).set({ status: "ready_for_safe", safeCalldata: calldata, updatedAt: new Date() }).where(eq(renameRequests.id, id));
+      return Response.json({ ok: true, safeTransactions: [{ to: address, value: "0", data: lockCalldata, description: "Lock the record for six hours" }, { to: address, value: "0", data: calldata, description: "Apply the approved identity" }], metadataURI: proposal.metadataURI });
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "Approval preparation failed" }, { status: 400 });
     }

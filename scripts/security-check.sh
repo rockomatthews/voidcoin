@@ -22,10 +22,13 @@ if ! command -v slither >/dev/null 2>&1; then
   exit 1
 fi
 
+export FOUNDRY_EVM_VERSION=cancun
+
 slither contracts/src/VOIDLaunch.sol \
   --compile-force-framework solc \
   --solc-solcs-bin "$security_solc" \
   --solc-remaps "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/" \
-  --solc-args "--base-path . --include-path node_modules" \
+  --solc-args "--base-path . --include-path node_modules --evm-version cancun" \
   --filter-paths "node_modules" \
-  --exclude timestamp
+  --exclude timestamp \
+  --fail-pedantic

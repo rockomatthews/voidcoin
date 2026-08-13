@@ -6,102 +6,179 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VOIDBondingCurve} from "../src/VOIDBondingCurve.sol";
 import {VOIDCoin} from "../src/VOIDCoin.sol";
 import {VOIDLaunch} from "../src/VOIDLaunch.sol";
+import {VOIDTreasuryVesting} from "../src/VOIDTreasuryVesting.sol";
+
+contract MockSafe {}
 
 contract MockMigrationTarget {
     address public migratedToken;
     uint256 public migratedTokens;
     uint256 public migratedEth;
+    address public positionRecipient;
+    bool public shouldRevert;
 
-    function migrate(address token, uint256 tokenAmount) external payable {
+    function setShouldRevert(bool value) external {
+        shouldRevert = value;
+    }
+
+    function migrate(address token, uint256 tokenAmount, address recipient) external payable returns (bytes32) {
+        if (shouldRevert) revert("offline");
         migratedToken = token;
         migratedTokens = tokenAmount;
         migratedEth = msg.value;
+        positionRecipient = recipient;
         IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
+        return keccak256(abi.encode(token, tokenAmount, msg.value, recipient));
     }
 }
 
 contract VOIDLaunchTest is Test {
-    address internal safe = makeAddr("safe");
+    address internal safe;
     address internal buyer = makeAddr("buyer");
+    address internal positionRecipient = makeAddr("lp-locker");
     MockMigrationTarget internal migrationTarget;
     VOIDLaunch internal launch;
     VOIDCoin internal token;
     VOIDBondingCurve internal curve;
+    VOIDTreasuryVesting internal vesting;
 
     function setUp() public {
+        safe = address(new MockSafe());
         migrationTarget = new MockMigrationTarget();
-        launch = new VOIDLaunch(safe, address(migrationTarget), 1 ether, 2 ether, "ipfs://genesis");
+        launch = new VOIDLaunch(safe, address(migrationTarget), positionRecipient, 1 ether, 2 ether, "ipfs://genesis");
         token = launch.token();
         curve = launch.bondingCurve();
+        vesting = launch.vestingWallet();
         vm.deal(buyer, 10 ether);
     }
 
-    function testLaunchAllocationMovesIntoContinuousCurve() public view {
-        assertEq(token.balanceOf(address(curve)), 900_000_000 ether);
+    function testLaunchAllocationAndAuthority() public view {
+        assertEq(token.balanceOf(address(curve)), 980_000_000 ether);
+        assertEq(curve.tokenReserve(), 980_000_000 ether);
         assertEq(token.balanceOf(address(launch)), 0);
-        assertEq(token.balanceOf(address(launch.vestingWallet())), 100_000_000 ether);
-        assertEq(token.pendingOwner(), safe);
-        assertEq(token.owner(), address(launch));
+        assertEq(token.balanceOf(address(vesting)), 20_000_000 ether);
+        assertEq(token.owner(), safe);
         assertEq(curve.owner(), safe);
+        assertEq(curve.positionRecipient(), positionRecipient);
         assertEq(curve.virtualEthReserve(), 1 ether);
         assertEq(curve.graduationThreshold(), 2 ether);
+        assertTrue(token.renamePaused());
     }
 
-    function testBuyAndSellUseBuyerFundedReserve() public {
+    function testBuyAndSellChargeOnePercentAndRoundAgainstTrader() public {
         uint256 expectedTokens = curve.quoteBuy(1 ether);
         vm.prank(buyer);
-        uint256 tokensOut = curve.buy{value: 1 ether}(expectedTokens);
+        uint256 tokensOut = curve.buy{value: 1 ether}(expectedTokens, block.timestamp);
         assertEq(tokensOut, expectedTokens);
         assertEq(token.balanceOf(buyer), expectedTokens);
-        assertEq(address(curve).balance, 1 ether);
+        assertEq(curve.ethReserve(), 1 ether);
 
-        uint256 tokensToSell = expectedTokens / 2;
         vm.startPrank(buyer);
-        token.approve(address(curve), tokensToSell);
-        uint256 expectedEth = curve.quoteSell(tokensToSell);
-        uint256 ethOut = curve.sell(tokensToSell, expectedEth);
+        token.approve(address(curve), tokensOut);
+        uint256 expectedEth = curve.quoteSell(tokensOut);
+        uint256 ethOut = curve.sell(tokensOut, expectedEth, block.timestamp);
         vm.stopPrank();
 
         assertEq(ethOut, expectedEth);
-        assertEq(address(curve).balance, 1 ether - expectedEth);
+        assertLt(ethOut, 1 ether);
+        assertEq(address(curve).balance, curve.ethReserve());
     }
 
-    function testCurveHasNoAuctionDeadline() public {
-        vm.warp(block.timestamp + 365 days);
-        vm.prank(buyer);
-        curve.buy{value: 0.1 ether}(0);
-        assertGt(token.balanceOf(buyer), 0);
+    function testForcedEthDoesNotAffectPriceOrGraduation() public {
+        uint256 quoteBefore = curve.quoteBuy(1 ether);
+        vm.deal(address(curve), 100 ether);
+        assertEq(curve.quoteBuy(1 ether), quoteBefore);
         assertFalse(curve.graduationReady());
+        assertEq(curve.ethReserve(), 0);
     }
 
-    function testBuyerEthTriggersSafeGatedGraduation() public {
-        vm.startPrank(buyer);
-        curve.buy{value: 1 ether}(0);
-        curve.buy{value: 1 ether}(0);
-        vm.stopPrank();
+    function testTradingRemainsOpenAfterThresholdUntilSuccessfulMigration() public {
+        uint256 quote = curve.quoteBuy(2 ether);
+        vm.prank(buyer);
+        curve.buy{value: 2 ether}(quote, block.timestamp);
         assertTrue(curve.graduationReady());
 
-        vm.expectRevert();
+        uint256 sellAmount = token.balanceOf(buyer) / 10;
+        vm.startPrank(buyer);
+        token.approve(address(curve), sellAmount);
+        uint256 ethQuote = curve.quoteSell(sellAmount);
+        curve.sell(sellAmount, ethQuote, block.timestamp);
+        vm.stopPrank();
+    }
+
+    function testMigrationFailureLeavesTradingOpen() public {
+        uint256 quote = curve.quoteBuy(2 ether);
+        vm.prank(buyer);
+        curve.buy{value: 2 ether}(quote, block.timestamp);
+        migrationTarget.setShouldRevert(true);
+
+        vm.expectRevert(VOIDBondingCurve.MigrationFailed.selector);
+        vm.prank(safe);
         curve.graduate();
 
-        uint256 remainingTokens = token.balanceOf(address(curve));
+        assertFalse(curve.graduated());
+        assertTrue(curve.graduationReady());
+        assertEq(curve.ethReserve(), 2 ether);
+        uint256 sellAmount = token.balanceOf(buyer) / 10;
+        vm.startPrank(buyer);
+        token.approve(address(curve), sellAmount);
+        curve.sell(sellAmount, curve.quoteSell(sellAmount), block.timestamp);
+        vm.stopPrank();
+    }
+
+    function testSuccessfulGraduationStartsTreasuryVesting() public {
+        uint256 quote = curve.quoteBuy(2 ether);
+        vm.prank(buyer);
+        curve.buy{value: 2 ether}(quote, block.timestamp);
+        uint256 remainingTokens = curve.tokenReserve();
+
         vm.prank(safe);
         curve.graduate();
 
         assertTrue(curve.graduated());
-        assertEq(migrationTarget.migratedToken(), address(token));
+        assertGt(curve.graduatedAt(), 0);
         assertEq(migrationTarget.migratedTokens(), remainingTokens);
         assertEq(migrationTarget.migratedEth(), 2 ether);
-        assertEq(token.balanceOf(address(curve)), 0);
-        assertEq(address(curve).balance, 0);
+        assertEq(migrationTarget.positionRecipient(), positionRecipient);
+        vm.expectRevert(VOIDTreasuryVesting.NothingToRelease.selector);
+        vesting.release();
+
+        vm.warp(block.timestamp + 182.5 days);
+        uint256 released = vesting.release();
+        assertApproxEqAbs(released, 10_000_000 ether, 1 ether);
+        assertEq(token.balanceOf(safe), released);
     }
 
-    function testTradesCloseOnceGraduationIsReady() public {
+    function testDeadlinesAndNonzeroSlippageAreRequired() public {
+        vm.expectRevert(VOIDBondingCurve.ZeroInput.selector);
         vm.prank(buyer);
-        curve.buy{value: 2 ether}(0);
+        curve.buy{value: 1 ether}(0, block.timestamp);
 
-        vm.expectRevert(VOIDBondingCurve.CurveClosed.selector);
+        vm.expectRevert(VOIDBondingCurve.DeadlineExpired.selector);
         vm.prank(buyer);
-        curve.buy{value: 0.1 ether}(0);
+        curve.buy{value: 1 ether}(1, block.timestamp - 1);
+    }
+
+    function testMaxSellableMakesUnpayableSellExplicit() public {
+        uint256 quote = curve.quoteBuy(1 ether);
+        vm.prank(buyer);
+        curve.buy{value: 1 ether}(quote, block.timestamp);
+
+        uint256 maximum = curve.maxSellable();
+        assertGt(maximum, 0);
+        assertLe(curve.quoteSell(maximum), curve.ethReserve());
+
+        vm.expectRevert(VOIDBondingCurve.InsufficientCurveLiquidity.selector);
+        curve.quoteSell(type(uint128).max);
+    }
+
+    function testOwnershipCannotBeRenounced() public {
+        vm.expectRevert(VOIDBondingCurve.RenouncingDisabled.selector);
+        vm.prank(safe);
+        curve.renounceOwnership();
+
+        vm.expectRevert(VOIDCoin.RenouncingDisabled.selector);
+        vm.prank(safe);
+        token.renounceOwnership();
     }
 }

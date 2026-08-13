@@ -8,6 +8,7 @@ import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib
 import { BURN_INCREMENT, formatNumber } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
+type PendingAuthorization = { id: string; wallet: string; commitment: `0x${string}`; proposedName: string; proposedSymbol: string };
 
 export function BurnTerminal() {
   const { address, isConnected } = useAccount();
@@ -24,6 +25,7 @@ export function BurnTerminal() {
   const [requiredBurn, setRequiredBurn] = useState(BURN_INCREMENT);
   const [balanceState, setBalanceState] = useState<{ wallet: string; value: number } | null>(null);
   const [ownsActiveSlot, setOwnsActiveSlot] = useState(false);
+  const [pendingAuthorization, setPendingAuthorization] = useState<PendingAuthorization | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -32,6 +34,19 @@ export function BurnTerminal() {
       .then((state: { nextBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
         setRequiredBurn(state.nextBurnAmount ?? BURN_INCREMENT);
         setOwnsActiveSlot(Boolean(address && state.activeSlot?.burner.toLowerCase() === address.toLowerCase()));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [address]);
+
+  useEffect(() => {
+    if (!address) return;
+    const controller = new AbortController();
+    fetch(`/api/requests?wallet=${encodeURIComponent(address)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("requests unavailable")))
+      .then((result: { requests?: Array<{ id: string; status: string; commitment: `0x${string}`; metadataURI: string | null; proposedName: string; proposedSymbol: string }> }) => {
+        const pending = result.requests?.find((item) => item.status === "changes_requested" && item.metadataURI);
+        setPendingAuthorization(pending ? { id: pending.id, wallet: address, commitment: pending.commitment, proposedName: pending.proposedName, proposedSymbol: pending.proposedSymbol } : null);
       })
       .catch(() => undefined);
     return () => controller.abort();
@@ -47,6 +62,7 @@ export function BurnTerminal() {
   }, [address, contractAddress, publicClient]);
 
   const balance = address && balanceState?.wallet.toLowerCase() === address.toLowerCase() ? balanceState.value : null;
+  const authorization = address && pendingAuthorization?.wallet.toLowerCase() === address.toLowerCase() ? pendingAuthorization : null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,6 +118,27 @@ export function BurnTerminal() {
     }
   }
 
+  async function authorizeApprovedMetadata() {
+    if (!authorization || !contractAddress || !publicClient) return;
+    try {
+      if (chainId !== targetChainId) await switchChainAsync({ chainId: targetChainId });
+      setPhase("burning");
+      setMessage("Authorize the moderator-approved IPFS metadata. This does not burn additional VOID.");
+      const transactionHash = await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "replaceCommitment", args: [authorization.commitment], chainId: targetChainId });
+      setPhase("confirming");
+      await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+      const response = await fetch(`/api/requests/${authorization.id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash, mode: "replace" }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Final metadata authorization could not be verified");
+      setPendingAuthorization(null);
+      setPhase("complete");
+      setMessage("Final metadata authorized. The moderator can now prepare the Safe approval.");
+    } catch (error) {
+      setPhase("error");
+      setMessage(error instanceof Error ? error.message : "Final metadata authorization failed");
+    }
+  }
+
   const disabledReason = !contractAddress
     ? "The Base Mainnet contract has not been deployed yet."
     : !isConnected
@@ -152,6 +189,7 @@ export function BurnTerminal() {
         <span><strong>THE BURN CANNOT BE REFUNDED.</strong> Rejection, a failed submission, or another wallet setting the next higher burn does not restore your tokens.</span>
       </label>
       <div className={`terminal-status phase-${phase}`} aria-live="polite"><span />{message}</div>
+      {authorization ? <button className="primary-action" type="button" onClick={authorizeApprovedMetadata} disabled={phase === "burning" || phase === "confirming"}>AUTHORIZE APPROVED {authorization.proposedName} / ${authorization.proposedSymbol}</button> : null}
       <button className="primary-action" type="submit" disabled={Boolean(disabledReason) || phase === "burning" || phase === "confirming" || phase === "preparing" || phase === "signing"} title={disabledReason ?? undefined}>
         {ownsActiveSlot ? "SUBMIT REPLACEMENT" : `BURN ${formatNumber(requiredBurn)} VOID + SUBMIT`}
       </button>

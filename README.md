@@ -11,10 +11,10 @@ The website purpose and URL are permanent. Its displayed name, ticker, image, he
 - `src/app` — Next.js App Router website, wallet flow, admin moderation, and API routes
 - `src/lib` — contract client, signature auth, image sanitization, Neon, Blob, IPFS, email, and webhook helpers
 - `contracts/src/VOIDCoin.sol` — non-upgradeable ERC-20 identity contract
-- `contracts/src/VOIDLaunch.sol` — deploys the token, continuous buyer-funded curve, and vesting wallet
+- `contracts/src/VOIDLaunch.sol` — deploys the token, continuous buyer-funded curve, and graduation-triggered treasury vesting
 - `contracts/src/VOIDBondingCurve.sol` — indefinite buy/sell curve that accumulates buyer ETH until migration
 - `contracts/test` — unit, fuzz, authorization, competitive-burn, curve, and migration tests
-- `contracts/script` — deployment of the vesting wallet and token with two-step Safe handoff
+- `contracts/script` — deployment with the production Safe installed directly as protocol owner
 - `drizzle` — Postgres schema migration
 - `docs` — security model and explicit launch gates
 
@@ -49,7 +49,7 @@ npm run contracts:security
 
 The security command runs Slither against the full launch dependency graph using the exact Solidity 0.8.30 binary and direct `solc` compilation. It intentionally bypasses Foundry build-info ingestion so unresolved AST references cannot be mistaken for a successful scan. Set `VOIDCOIN_SOLC_BIN` when the system `solc` command is not version 0.8.30.
 
-The deployment creates the token, vesting wallet, and a continuous constant-product bonding curve, then atomically deposits the 90% launch allocation into the curve. Buyers provide all real ETH. The curve has no auction duration or failed-launch deadline: it remains open until accumulated buyer ETH reaches the approved graduation threshold. At that point trading pauses and the Safe may migrate the ETH and remaining VOID through a separately reviewed migration target. No creator-funded ETH is supplied.
+The deployment creates the token, treasury vesting contract, and a continuous constant-product bonding curve, then atomically deposits 98% of supply into the curve and 2% into the creator treasury. Treasury vesting cannot begin until successful graduation and lasts 12 months. Buyers provide all real ETH. The curve charges 1% on buys and sells and remains tradable after reaching the graduation threshold; only a successful Safe-triggered migration closes it. A failed migration leaves trading open. No creator-funded ETH is supplied.
 
 The deployment does not accept Safe ownership, choose curve economics, unpause rename slots, or deploy the website.
 
@@ -60,8 +60,8 @@ The exact Base Mainnet rehearsal, broadcast, verification, and post-deploy check
 1. The browser requests a short-lived HMAC challenge and verifies ownership with an EIP-191 wallet signature.
 2. The server validates the real image format, decodes it with `sharp`, strips metadata, stores the clean asset in private Blob storage, and computes the exact onchain commitment.
 3. The contract enforces exactly the next level through `burnForRename`: the prior record plus 1,000,000 VOID. The expected level is included in the transaction so a stale submission reverts before any tokens burn. A new record immediately supersedes any pending leader.
-4. The moderator enters `/admin` through an allowlisted magic link. Request changes lets the current record holder replace the proposal without burning again; approve publishes the cleaned image and metadata to IPFS and prepares calldata.
-5. The token identity changes only when the owner Safe executes that calldata onchain.
+4. The moderator enters `/admin` through an allowlisted magic link. Request changes lets the current record holder replace the proposal without burning again. Approval publishes the cleaned asset, then requires the burner to bind the exact final IPFS metadata URI without another burn.
+5. After that authorization, the application prepares an ordered Safe batch that briefly locks the record and applies the identity. The token changes only when the Safe executes it onchain.
 
 Contract events are canonical. Neon is a moderation workflow and event-index cache, never the source of truth for token state.
 

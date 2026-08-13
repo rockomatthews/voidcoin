@@ -376,8 +376,7 @@ contract AuditPoCTest is Test {
         uint256 burnId = token.nextBurnId();
         bytes32 imageHash = keccak256("the-image-the-user-actually-paid-for");
         bytes32 salt = keccak256("salt");
-        bytes32 commitment =
-            token.proposalCommitment(burnId, alice, amount, "Good Name", "GOOD", imageHash, salt);
+        bytes32 commitment = token.proposalCommitment(burnId, alice, amount, "Good Name", "GOOD", imageHash, salt);
 
         vm.prank(alice);
         token.burnForRename(amount, commitment);
@@ -502,8 +501,7 @@ contract AuditPoCTest is Test {
         uint256 burnId = token.nextBurnId();
         bytes32 salt = keccak256("s");
         bytes32 imageHash = keccak256("i");
-        bytes32 commitment =
-            token.proposalCommitment(burnId, alice, amount, "SixteenCharsXXXX", "SYM", imageHash, salt);
+        bytes32 commitment = token.proposalCommitment(burnId, alice, amount, "SixteenCharsXXXX", "SYM", imageHash, salt);
         vm.prank(alice);
         token.burnForRename(amount, commitment);
 

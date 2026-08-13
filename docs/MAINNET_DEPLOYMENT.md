@@ -8,6 +8,7 @@ Do not broadcast until all values are final and independently reviewed:
 
 - `SAFE_ADDRESS` — deployed production Safe that will moderate metadata and own the curve.
 - `MIGRATION_TARGET` — reviewed Base contract that atomically creates or funds the intended post-graduation pool.
+- `POSITION_RECIPIENT` — approved LP-position locker or permanent custody recipient.
 - `VIRTUAL_ETH_RESERVE` — starting curve parameter in wei; this controls initial price and slippage.
 - `GRADUATION_THRESHOLD` — buyer-funded ETH threshold in wei.
 - `INITIAL_TOKEN_URI` — permanent IPFS JSON for the supplied VOID logo and genesis identity.
@@ -29,7 +30,7 @@ forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
   -vvvv
 ```
 
-Verify the predicted addresses, 900M/100M allocation, Safe pending ownership, curve parameters, and paused rename state.
+Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% buy/sell fee, curve parameters, graduation-gated treasury vesting, and paused rename state.
 
 ## Broadcast and verify
 
@@ -47,8 +48,8 @@ forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
 After broadcast:
 
 1. Record the launch, token, curve, vesting-wallet, and migration-target addresses.
-2. Have the production Safe call `acceptOwnership()` on the token.
-3. Confirm the deployer has no token or curve authority.
+2. Confirm the Safe already owns both token and curve and the deployer has no protocol authority.
+3. Confirm the 20M creator allocation cannot release before successful graduation.
 4. Set Vercel `NEXT_PUBLIC_VOIDCOIN_ADDRESS` and `NEXT_PUBLIC_VOIDCOIN_DEPLOYMENT_BLOCK`.
 5. Configure the production RPC, database, private Blob store, Pinata, Resend, Alchemy webhook, admin email, WalletConnect ID, and secrets.
 6. Keep renaming paused until moderation, event indexing, email, and Safe calldata are verified against the live address.

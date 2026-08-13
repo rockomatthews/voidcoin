@@ -1,5 +1,7 @@
 # VOIDCOIN professional security review brief
 
+> Historical phase-one brief for frozen commit `18e79a24576fe2a028bf17706342989e96fec0d8`. It intentionally describes the pre-remediation 90/10 design and must not be used as the current deployment specification. See `docs/audits/phase1/` and the remediation documentation for the current 98/2, 1%-fee design.
+
 ## Repository and frozen revision
 
 - Repository: `https://github.com/rockomatthews/voidcoin`

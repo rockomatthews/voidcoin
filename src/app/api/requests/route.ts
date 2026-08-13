@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { put } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
-import { verifyMessage, type Address, type Hex } from "viem";
+import { verifyMessage, zeroHash, type Address, type Hex } from "viem";
 import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { verifyWalletChallenge } from "@/lib/auth";
 import { getPublicClient } from "@/lib/chain";
@@ -14,8 +14,8 @@ export async function GET(request: Request) {
   if (!hasDatabase()) return Response.json({ requests: [] });
   const wallet = new URL(request.url).searchParams.get("wallet")?.toLowerCase();
   if (!wallet) return Response.json({ error: "Wallet is required" }, { status: 400 });
-  const rows = await getDb().select({ id: renameRequests.id, status: renameRequests.status, proposedName: renameRequests.proposedName, proposedSymbol: renameRequests.proposedSymbol, moderatorNote: renameRequests.moderatorNote, burnAmount: renameRequests.burnAmount }).from(renameRequests).where(eq(renameRequests.wallet, wallet));
-  return Response.json({ requests: rows });
+  const rows = await getDb().select({ id: renameRequests.id, status: renameRequests.status, proposedName: renameRequests.proposedName, proposedSymbol: renameRequests.proposedSymbol, moderatorNote: renameRequests.moderatorNote, burnAmount: renameRequests.burnAmount, burnId: renameRequests.burnId, commitment: renameRequests.commitment, metadataURI: renameRequests.metadataURI }).from(renameRequests).where(eq(renameRequests.wallet, wallet));
+  return Response.json({ requests: rows.map((row) => ({ ...row, burnId: row.burnId.toString(), burnAmount: row.burnAmount.toString() })) });
 }
 
 export async function POST(request: Request) {
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     const burnId = isReplacement ? slot.burnId : nextBurnId;
     const burnAmount = isReplacement ? slot.burnAmount : nextBurnRequirement;
     const salt = `0x${randomBytes(32).toString("hex")}` as Hex;
-    const commitment = createCommitment({ chainId: configuredChainId(), contractAddress, burnId, burner: wallet, burnAmount, name: parsed.data.name, symbol: parsed.data.symbol, imageHash: sanitized.hash, salt });
+    const commitment = createCommitment({ chainId: configuredChainId(), contractAddress, burnId, burner: wallet, burnAmount, name: parsed.data.name, symbol: parsed.data.symbol, imageHash: sanitized.hash, metadataURIHash: zeroHash, salt });
     const blob = await put(`requests/${wallet.toLowerCase()}/${burnId}.${sanitized.extension}`, sanitized.bytes, { access: "private", contentType: sanitized.contentType, addRandomSuffix: true, cacheControlMaxAge: 60 });
     const values = {
       wallet: wallet.toLowerCase(),

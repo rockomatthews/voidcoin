@@ -28,13 +28,14 @@ export interface CommitmentInput {
   name: string;
   symbol: string;
   imageHash: Hex;
+  metadataURIHash: Hex;
   salt: Hex;
 }
 
 export function createCommitment(input: CommitmentInput): Hex {
   return keccak256(
     encodeAbiParameters(
-      parseAbiParameters("uint256 chainId, address token, uint256 burnId, address burner, uint256 burnAmount, string name, string symbol, bytes32 imageHash, bytes32 salt"),
+      parseAbiParameters("uint256 chainId, address token, uint256 burnId, address burner, uint256 burnAmount, string name, string symbol, bytes32 imageHash, bytes32 metadataURIHash, bytes32 salt"),
       [
         BigInt(input.chainId),
         input.contractAddress,
@@ -44,6 +45,7 @@ export function createCommitment(input: CommitmentInput): Hex {
         input.name,
         input.symbol,
         input.imageHash,
+        input.metadataURIHash,
         input.salt,
       ],
     ),

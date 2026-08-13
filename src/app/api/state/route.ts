@@ -37,7 +37,7 @@ export async function GET() {
       nextBurnAmount: Number(formatUnits(nextRequirement, 18)),
       recordBurner: recordHolder === "0x0000000000000000000000000000000000000000" ? null : recordHolder,
       renamePaused: paused,
-      activeSlot: slot.burner === "0x0000000000000000000000000000000000000000" ? null : { burnId: slot.burnId.toString(), burner: slot.burner, burnAmount: Number(formatUnits(slot.burnAmount, 18)), commitment: slot.commitment, openedAt: Number(slot.openedAt) },
+      activeSlot: slot.burner === "0x0000000000000000000000000000000000000000" ? null : { burnId: slot.burnId.toString(), burner: slot.burner, burnAmount: Number(formatUnits(slot.burnAmount, 18)), commitment: slot.commitment, openedAt: Number(slot.openedAt), lockedUntil: Number(slot.lockedUntil) },
     });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Could not read Base state" }, { status: 502 });
