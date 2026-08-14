@@ -48,7 +48,7 @@ The Next.js moderation application is not part of the core Solidity audit unless
 - Holders may sell back into the curve while it remains open and real ETH liquidity is available.
 - Trading closes when real ETH reaches the configured graduation threshold.
 - Only the Safe may call graduation.
-- Graduation must atomically move all remaining curve tokens and real ETH through a separately reviewed migration target, or revert without losing funds.
+- Graduation must atomically burn the excess unsold curve inventory, then move only the token amount matching the final marginal curve price and all real ETH through a separately reviewed migration target, or revert without changing supply, reserves, or trading state.
 
 ### Launch and authority
 

@@ -12,6 +12,8 @@ The caller cannot burn outside the live record range. `burnForRename` requires a
 
 `VOIDLaunch` performs the genesis allocation atomically: 98% enters the continuous buyer-funded curve and 2% enters a non-transferable creator-beneficiary vesting contract. Vesting starts only after successful graduation and runs linearly for 12 months. The production Safe is installed directly as token and curve owner; the launch contract never owns either. The curve charges 1% in each direction, accounts reserves internally, remains open after reaching the threshold, and closes only after a successful Safe-triggered migration. Failed migration calls roll back without closing trading.
 
+At graduation, the curve derives the token amount that matches the final marginal curve price, returns the excess unsold inventory to the immutable launch receiver, and burns it through a launch-receiver-only token entry point. `VOIDLaunch` accepts that instruction only from its immutable bonding curve. The burn and migration are one atomic transaction: a failed burn, supply-accounting check, or migration restores supply, reserves, and trading state. This scoped path cannot burn buyer balances, treasury tokens, or arbitrary launch-held tokens outside a curve-triggered graduation.
+
 ## Private moderation data
 
 Unapproved text, email addresses, salt values, and images remain offchain. Image payloads are capped before decoding, checked by decoded format and dimensions, and re-encoded to remove unnecessary metadata. Private Blob URLs and tokens must never reach client bundles, logs, or public database responses. Rejected assets require a scheduled deletion process after 30 days; the operator must verify that job before activation.

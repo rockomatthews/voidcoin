@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {VOIDBondingCurve} from "../src/VOIDBondingCurve.sol";
 import {VOIDCoin} from "../src/VOIDCoin.sol";
 import {VOIDLaunch} from "../src/VOIDLaunch.sol";
@@ -36,7 +37,11 @@ contract MockMigrationTarget {
         shouldRevert = value;
     }
 
-    function migrate(address token, uint256 tokenAmount, address recipient) external payable returns (bytes32, uint256) {
+    function migrate(address token, uint256 tokenAmount, address recipient)
+        external
+        payable
+        returns (bytes32, uint256)
+    {
         if (shouldRevert) revert("offline");
         migratedToken = token;
         migratedTokens = tokenAmount;
@@ -59,7 +64,8 @@ contract MockMigrationTarget {
         IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
         uint256 tokenId = nextPositionTokenId++;
         MockPositionRecipient(recipient).registerPosition(tokenId);
-        return (keccak256(abi.encode("seed", token, tokenAmount, msg.value, recipient)), tokenId, tokenAmount, msg.value);
+        return
+            (keccak256(abi.encode("seed", token, tokenAmount, msg.value, recipient)), tokenId, tokenAmount, msg.value);
     }
 }
 
@@ -148,9 +154,7 @@ contract VOIDLaunchTest is Test {
 
         vm.prank(safe);
         curve.proposeMigrationTarget(address(replacement));
-        vm.warp(
-            block.timestamp + curve.MIGRATION_DELAY() + curve.MIGRATION_PROPOSAL_WINDOW() + 1
-        );
+        vm.warp(block.timestamp + curve.MIGRATION_DELAY() + curve.MIGRATION_PROPOSAL_WINDOW() + 1);
         vm.expectRevert(VOIDBondingCurve.MigrationProposalExpired.selector);
         vm.prank(safe);
         curve.acceptMigrationTarget();
@@ -160,6 +164,8 @@ contract VOIDLaunchTest is Test {
         _fundToThreshold();
         vm.prank(safe);
         curve.seedMigrationPool();
+        uint256 supplyBefore = token.totalSupply();
+        uint256 reserveBefore = curve.tokenReserve();
         migrationTarget.setShouldRevert(true);
 
         vm.expectRevert(VOIDBondingCurve.MigrationFailed.selector);
@@ -169,6 +175,8 @@ contract VOIDLaunchTest is Test {
         assertFalse(curve.graduated());
         assertTrue(curve.graduationReady());
         assertEq(curve.ethReserve() + curve.seededEthLiquidity(), 2 ether);
+        assertEq(curve.tokenReserve(), reserveBefore);
+        assertEq(token.totalSupply(), supplyBefore);
         uint256 sellAmount = token.balanceOf(buyer) / 10;
         vm.startPrank(buyer);
         token.approve(address(curve), sellAmount);
@@ -180,15 +188,23 @@ contract VOIDLaunchTest is Test {
         _fundToThreshold();
         vm.prank(safe);
         curve.seedMigrationPool();
-        uint256 remainingTokens = curve.tokenReserve();
+        uint256 reserveTokens = curve.tokenReserve();
+        uint256 supplyBefore = token.totalSupply();
+        (uint256 liquidityTokens, uint256 tokensToBurn) = curve.graduationLiquidityQuote();
+        assertEq(
+            liquidityTokens,
+            Math.mulDiv(curve.ethReserve(), reserveTokens, curve.virtualEthReserve() + curve.ethReserve())
+        );
 
         vm.prank(safe);
         curve.graduate();
 
         assertTrue(curve.graduated());
         assertGt(curve.graduatedAt(), 0);
-        assertEq(migrationTarget.migratedTokens(), remainingTokens);
+        assertEq(migrationTarget.migratedTokens(), liquidityTokens);
         assertEq(migrationTarget.migratedEth() + migrationTarget.seededEth(), 2 ether);
+        assertEq(token.totalSupply(), supplyBefore - tokensToBurn);
+        assertEq(token.balanceOf(address(launch)), 0);
         assertEq(migrationTarget.positionRecipient(), positionRecipient);
         vm.expectRevert(VOIDTreasuryVesting.NothingToRelease.selector);
         vesting.release();
@@ -197,6 +213,11 @@ contract VOIDLaunchTest is Test {
         uint256 released = vesting.release();
         assertApproxEqAbs(released, 10_000_000 ether, 1 ether);
         assertEq(token.balanceOf(safe), released);
+    }
+
+    function testOnlyBondingCurveCanBurnCurveExcess() public {
+        vm.expectRevert(VOIDLaunch.OnlyBondingCurve.selector);
+        launch.burnCurveExcess(1);
     }
 
     function testDeadlinesAndNonzeroSlippageAreRequired() public {

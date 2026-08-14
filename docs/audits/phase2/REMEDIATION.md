@@ -37,14 +37,15 @@ This records the remediation of the phase-two delta review delivered on 2026-08-
 - Maximum purchase: 1 ETH per transaction.
 - Graduation threshold: 25 real ETH.
 - Pool seed cap: 0.1% of each current accounted reserve, once.
+- Graduation burn: permanently destroy excess unsold curve inventory so the final LP token/ETH ratio matches the curve's marginal price.
 - Rename floor: 1,000,000 VOID initially, then record plus 250,000 VOID.
 - Strategic premium cap: 2,000,000 VOID above the current floor.
 
 ## Verification
 
-- 44 Foundry tests pass; two Base fork tests explicitly skip outside a fork.
+- 46 Foundry tests pass; three Base fork tests explicitly skip outside a fork.
 - Every handler invariant runs 128,000 calls, including full-float redeemability.
-- The hostile pre-initialization recovery test passes against deployed Base Uniswap contracts without broadcasting.
+- The hostile pre-initialization recovery test and the exact 25 ETH production graduation lifecycle pass against deployed Base Uniswap contracts without broadcasting. The production lifecycle burns the calculated excess, migrates only the price-matched token quantity, and leaves the curve and launch receiver with zero token balances.
 - Slither reports zero results for the launch graph, migration adapter, and position locker using Solidity 0.8.30.
 - 12 application tests, ESLint, TypeScript, and the production Next.js build pass.
 
@@ -53,5 +54,5 @@ This records the remediation of the phase-two delta review delivered on 2026-08-
 1. Independent professional retest of the new frozen commit and deployment calldata.
 2. Production Safe address and configuration.
 3. Final permanent genesis IPFS metadata.
-4. Explicitly resolve or accept the approximately 80% marginal-price discontinuity between the 100 ETH virtual-reserve curve and a pool funded with only 25 real ETH and all remaining VOID.
+4. Professional review of the newly added scoped launch-reserve burn and exact price-continuity formula.
 5. No deployment, activation, buyer funding, or Safe execution occurs until those gates close.

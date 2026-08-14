@@ -29,8 +29,7 @@ contract DeployVOIDCoin is Script {
         vm.startBroadcast();
         VOIDUniswapV3Migration migrationTarget =
             new VOIDUniswapV3Migration(IVOIDUniswapV3PositionManager(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
-        VOIDPositionLocker positionLocker =
-            new VOIDPositionLocker(IERC721(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
+        VOIDPositionLocker positionLocker = new VOIDPositionLocker(IERC721(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
         VOIDLaunch launch = new VOIDLaunch(
             safe,
             address(migrationTarget),

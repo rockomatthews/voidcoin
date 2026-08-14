@@ -7,12 +7,11 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {
-    VOIDUniswapV3Migration,
-    IVOIDUniswapV3PositionManager,
-    IVOIDWETH9
-} from "../src/VOIDUniswapV3Migration.sol";
+import {VOIDUniswapV3Migration, IVOIDUniswapV3PositionManager, IVOIDWETH9} from "../src/VOIDUniswapV3Migration.sol";
 import {VOIDPositionLocker} from "../src/VOIDPositionLocker.sol";
+import {VOIDLaunch} from "../src/VOIDLaunch.sol";
+import {VOIDBondingCurve} from "../src/VOIDBondingCurve.sol";
+import {VOIDCoin} from "../src/VOIDCoin.sol";
 
 interface IVOIDPositionOwner {
     function ownerOf(uint256 tokenId) external view returns (address);
@@ -44,7 +43,7 @@ contract VOIDUniswapV3MigrationForkTest is Test {
     address internal constant SWAP_ROUTER_02 = 0x2626664c2603336E57B271c5C0b26F421741e481;
 
     struct RecoveryContext {
-        ForkLaunchToken token;
+        IERC20 token;
         VOIDUniswapV3Migration adapter;
         VOIDPositionLocker locker;
         address weth;
@@ -109,7 +108,7 @@ contract VOIDUniswapV3MigrationForkTest is Test {
 
         manager.createAndInitializePoolIfNecessary(token0, token1, adapter.POOL_FEE(), hostileSqrtPriceX96);
         RecoveryContext memory context = RecoveryContext({
-            token: token,
+            token: IERC20(address(token)),
             adapter: adapter,
             locker: locker,
             weth: weth,
@@ -121,9 +120,56 @@ contract VOIDUniswapV3MigrationForkTest is Test {
         _seedArbitrageAndMigrate(context);
     }
 
-    function _seedArbitrageAndMigrate(RecoveryContext memory context)
-        private
-    {
+    function testBaseMainnetFullProductionGraduationBurnsExcessAtContinuousPrice() public {
+        if (block.chainid != 8453) vm.skip(true);
+
+        IVOIDUniswapV3PositionManager manager = IVOIDUniswapV3PositionManager(POSITION_MANAGER);
+        VOIDUniswapV3Migration adapter = new VOIDUniswapV3Migration(manager, address(this));
+        VOIDPositionLocker locker = new VOIDPositionLocker(IERC721(POSITION_MANAGER), address(this));
+        VOIDLaunch launch =
+            new VOIDLaunch(address(this), address(adapter), address(locker), 100 ether, 25 ether, "ipfs://fork");
+        VOIDCoin token = launch.token();
+        VOIDBondingCurve curve = launch.bondingCurve();
+        vm.deal(address(this), 100 ether);
+
+        for (uint256 i; i < 25; ++i) {
+            uint256 quote = curve.quoteBuy(1 ether);
+            curve.buy{value: 1 ether}(quote, block.timestamp);
+        }
+        uint256 supplyBefore = token.totalSupply();
+        (uint256 preSeedLiquidityTokens,) = curve.graduationLiquidityQuote();
+        address weth = manager.WETH9();
+        (address token0, address token1) = address(token) < weth ? (address(token), weth) : (weth, address(token));
+        uint160 hostileSqrtPriceX96 = _sqrtPrice(
+            token0 == address(token) ? preSeedLiquidityTokens : curve.ethReserve(),
+            token1 == address(token) ? preSeedLiquidityTokens : curve.ethReserve()
+        ) * 2;
+        manager.createAndInitializePoolIfNecessary(token0, token1, adapter.POOL_FEE(), hostileSqrtPriceX96);
+
+        curve.seedMigrationPool();
+        (uint256 liquidityTokens, uint256 tokensToBurn) = curve.graduationLiquidityQuote();
+        RecoveryContext memory context = RecoveryContext({
+            token: IERC20(address(token)),
+            adapter: adapter,
+            locker: locker,
+            weth: weth,
+            token0: token0,
+            token1: token1,
+            tokenAmount: liquidityTokens,
+            ethAmount: curve.ethReserve()
+        });
+        _arbitrageToFairPrice(context, liquidityTokens, curve.ethReserve());
+        curve.graduate();
+
+        assertTrue(curve.graduated());
+        assertEq(token.totalSupply(), supplyBefore - tokensToBurn);
+        assertEq(token.balanceOf(address(curve)), 0);
+        assertEq(token.balanceOf(address(launch)), 0);
+        assertEq(curve.tokenReserve(), 0);
+        assertEq(curve.ethReserve(), 0);
+    }
+
+    function _seedArbitrageAndMigrate(RecoveryContext memory context) private {
         vm.deal(address(this), 20 ether);
         (uint256 remainingTokens, uint256 remainingEth) = _seedHostilePool(context);
         _arbitrageToFairPrice(context, remainingTokens, remainingEth);
@@ -142,9 +188,8 @@ contract VOIDUniswapV3MigrationForkTest is Test {
         uint256 ethSeedCap = context.ethAmount / 1_000;
         IERC20(address(context.token)).approve(address(context.adapter), context.tokenAmount + tokenSeedCap);
 
-        (, uint256 seedTokenId, uint256 tokenUsed, uint256 ethUsed) = context.adapter.seed{value: ethSeedCap}(
-            address(context.token), tokenSeedCap, address(context.locker)
-        );
+        (, uint256 seedTokenId, uint256 tokenUsed, uint256 ethUsed) =
+            context.adapter.seed{value: ethSeedCap}(address(context.token), tokenSeedCap, address(context.locker));
         assertTrue(tokenUsed <= tokenSeedCap && ethUsed <= ethSeedCap);
         assertTrue(tokenUsed > 0 || ethUsed > 0);
         assertTrue(context.locker.isRegisteredPosition(seedTokenId, address(context.adapter)));
@@ -153,11 +198,9 @@ contract VOIDUniswapV3MigrationForkTest is Test {
         remainingEth = context.ethAmount - ethUsed;
     }
 
-    function _arbitrageToFairPrice(
-        RecoveryContext memory context,
-        uint256 remainingTokens,
-        uint256 remainingEth
-    ) private {
+    function _arbitrageToFairPrice(RecoveryContext memory context, uint256 remainingTokens, uint256 remainingEth)
+        private
+    {
         uint160 fairSqrtPriceX96 = _sqrtPrice(
             context.token0 == address(context.token) ? remainingTokens : remainingEth,
             context.token1 == address(context.token) ? remainingTokens : remainingEth
@@ -169,8 +212,9 @@ contract VOIDUniswapV3MigrationForkTest is Test {
             IVOIDWETH9(context.weth).deposit{value: swapAmount}();
             IERC20(context.weth).approve(SWAP_ROUTER_02, swapAmount);
         }
-        IVOIDSwapRouter02(SWAP_ROUTER_02).exactInputSingle(
-            IVOIDSwapRouter02.ExactInputSingleParams({
+        IVOIDSwapRouter02(SWAP_ROUTER_02)
+            .exactInputSingle(
+                IVOIDSwapRouter02.ExactInputSingleParams({
                 tokenIn: context.token0,
                 tokenOut: context.token1,
                 fee: context.adapter.POOL_FEE(),
@@ -179,7 +223,7 @@ contract VOIDUniswapV3MigrationForkTest is Test {
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: fairSqrtPriceX96
             })
-        );
+            );
     }
 
     function _sqrtPrice(uint256 amount0, uint256 amount1) private pure returns (uint160) {

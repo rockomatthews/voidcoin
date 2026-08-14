@@ -40,9 +40,9 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Confirm the continuous curve receives exactly 980,000,000 VOID and the graduation-triggered 12-month treasury receives exactly 20,000,000 VOID.
 - Confirm the immutable curve fee is exactly 1% on buys and 1% on sells, with fees retained in accounted reserves.
 - Buyers—not the creator—supply every real ETH deposit. Confirm unused seed assets return to the curve and the reviewed adapter places at least 99.9% of remaining ETH and VOID into the intended final Uniswap position.
+- Confirm graduation burns exactly the excess unsold reserve, migrates only `ethReserve * tokenReserve / (virtualEthReserve + ethReserve)`, preserves marginal price continuity, and leaves both the curve and launch contract with zero accounted VOID.
 - Verify the LP NFT is owned by `VOIDPositionLocker`, its unlock timestamp is exactly 365 days after graduation, and its immutable beneficiary is the production Safe.
 - Exercise buy, sell, the 1 ETH cap, forced-asset isolation, threshold latching, continued trading after threshold, failed migration rollback, hostile pre-initialization, capped seeding, and successful venue migration on a local Base Mainnet fork before publishing the production deployment.
-- Resolve or explicitly accept the modeled approximately 80% curve-to-Uniswap marginal-price discontinuity created by the approved 100 ETH virtual reserve / 25 ETH real threshold before Mainnet broadcast.
 
 ## 6. Production services
 

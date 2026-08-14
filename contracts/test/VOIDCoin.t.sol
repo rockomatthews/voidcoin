@@ -35,6 +35,18 @@ contract VOIDCoinTest is Test {
         assertTrue(token.renamePaused());
     }
 
+    function testOnlyImmutableLaunchReceiverCanBurnReturnedReserve() public {
+        uint256 amount = 1_000_000 ether;
+        uint256 supplyBefore = token.totalSupply();
+        vm.expectRevert(VOIDCoin.OnlyLaunchReceiver.selector);
+        token.burnLaunchReserve(amount);
+
+        vm.prank(launch);
+        token.burnLaunchReserve(amount);
+        assertEq(token.totalSupply(), supplyBefore - amount);
+        assertEq(token.destroyedSupply(), amount);
+    }
+
     function testRecordBurnCanBeApprovedBySafe() public {
         _unpause();
         uint256 amount = token.nextBurnRequirement();

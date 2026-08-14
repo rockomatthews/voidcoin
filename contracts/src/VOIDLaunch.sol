@@ -3,13 +3,13 @@ pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {VOIDBondingCurve} from "./VOIDBondingCurve.sol";
+import {VOIDBondingCurve, IVOIDReserveBurner} from "./VOIDBondingCurve.sol";
 import {VOIDCoin} from "./VOIDCoin.sol";
 import {VOIDTreasuryVesting, IVOIDGraduationGate} from "./VOIDTreasuryVesting.sol";
 
 /// @title VOIDLaunch
 /// @notice Deploys VOIDCOIN, its continuous curve, and the post-graduation creator vesting allocation.
-contract VOIDLaunch {
+contract VOIDLaunch is IVOIDReserveBurner {
     using SafeERC20 for IERC20;
 
     VOIDCoin public immutable token;
@@ -19,6 +19,7 @@ contract VOIDLaunch {
     error ZeroAddress();
     error InvalidContract();
     error LaunchAllocationNotConsumed();
+    error OnlyBondingCurve();
 
     constructor(
         address safe,
@@ -52,5 +53,11 @@ contract VOIDLaunch {
         token = coin;
         bondingCurve = curve;
         vestingWallet = vesting;
+    }
+
+    /// @notice Completes the curve's atomic graduation burn without giving any account a reusable burn authority.
+    function burnCurveExcess(uint256 amount) external override {
+        if (msg.sender != address(bondingCurve)) revert OnlyBondingCurve();
+        token.burnLaunchReserve(amount);
     }
 }

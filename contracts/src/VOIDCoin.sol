@@ -32,6 +32,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     uint256 public currentBurnId;
     uint256 public recordBurn;
     address public recordBurner;
+    address public immutable launchReserveBurner;
     bool public renamePaused;
     RenameSlot private _activeSlot;
 
@@ -51,6 +52,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     error SlotNotExpired();
     error AlreadyLocked();
     error RenouncingDisabled();
+    error OnlyLaunchReceiver();
 
     event RenameBurned(
         uint256 indexed burnId,
@@ -86,9 +88,16 @@ contract VOIDCoin is ERC20, Ownable2Step {
         _currentSymbol = "VOID";
         _currentTokenURI = initialTokenURI;
         renamePaused = true;
+        launchReserveBurner = launchReceiver;
 
         _mint(launchReceiver, LAUNCH_ALLOCATION);
         _mint(treasuryVestingWallet, TREASURY_ALLOCATION);
+    }
+
+    /// @notice Burns only tokens returned to the immutable launch contract during curve graduation.
+    function burnLaunchReserve(uint256 amount) external {
+        if (msg.sender != launchReserveBurner) revert OnlyLaunchReceiver();
+        _burn(msg.sender, amount);
     }
 
     function name() public view override returns (string memory) {

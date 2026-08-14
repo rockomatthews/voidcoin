@@ -25,6 +25,10 @@ interface IVOIDPositionCustody {
     function isRegisteredPosition(uint256 tokenId, address registrar) external view returns (bool);
 }
 
+interface IVOIDReserveBurner {
+    function burnCurveExcess(uint256 amount) external;
+}
+
 /// @title VOIDBondingCurve
 /// @notice Buyer-funded constant-product market with internally accounted reserves and recoverable graduation.
 contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
@@ -91,6 +95,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         uint256 ethAmount,
         uint256 tokenAmount
     );
+    event GraduationExcessBurned(uint256 tokenAmount, uint256 remainingSupply);
     event Graduated(
         address indexed migrationTarget,
         address indexed positionRecipient,
@@ -156,6 +161,14 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
 
     function maxBuyAmount() public view returns (uint256) {
         return Math.mulDiv(virtualEthReserve, MAX_BUY_BPS_OF_VIRTUAL_RESERVE, BPS);
+    }
+
+    function graduationLiquidityQuote() public view returns (uint256 tokensForLiquidity, uint256 tokensToBurn) {
+        // Exact zero is the intentional boundary for a usable graduation quote.
+        // slither-disable-next-line incorrect-equality
+        if (ethReserve == 0 || accountedTokenReserve == 0) return (0, accountedTokenReserve);
+        tokensForLiquidity = Math.mulDiv(ethReserve, accountedTokenReserve, virtualEthReserve + ethReserve);
+        tokensToBurn = accountedTokenReserve - tokensForLiquidity;
     }
 
     function quoteSell(uint256 tokensIn) public view returns (uint256 ethOut) {
@@ -302,8 +315,8 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
             revert MigrationFailed();
         }
         if (
-            outcomeId == bytes32(0) || positionTokenId == 0 || (tokenUsed == 0 && ethUsed == 0)
-                || tokenUsed > tokenCap || ethUsed > ethCap
+            outcomeId == bytes32(0) || positionTokenId == 0 || (tokenUsed == 0 && ethUsed == 0) || tokenUsed > tokenCap
+                || ethUsed > ethCap
         ) revert MigrationFailed();
         try IVOIDPositionCustody(positionRecipient).isRegisteredPosition(positionTokenId, target) returns (bool valid) {
             if (!valid) revert MigrationFailed();
@@ -319,6 +332,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         seededEthLiquidity = ethUsed;
         emit MigrationPoolSeeded(target, positionRecipient, outcomeId, positionTokenId, ethUsed, tokenUsed);
     }
+
     // slither-disable-end reentrancy-balance,reentrancy-eth,reentrancy-benign,cyclomatic-complexity
 
     // slither-disable-start cyclomatic-complexity
@@ -327,9 +341,14 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         if (!poolSeeded) revert PoolNotSeeded();
         address target = migrationTarget;
         if (target.code.length == 0) revert MigrationFailed();
-        uint256 tokens = accountedTokenReserve;
+        uint256 reserveTokens = accountedTokenReserve;
         uint256 eth = ethReserve;
+        (uint256 tokens, uint256 tokensToBurn) = graduationLiquidityQuote();
+        // Both legs must be nonzero; exact zero is the intentional graduation boundary.
+        // slither-disable-next-line incorrect-equality
+        if (tokens == 0 || tokensToBurn == 0) revert MigrationFailed();
         uint256 tokenBalanceBefore = token.balanceOf(address(this));
+        uint256 supplyBefore = token.totalSupply();
         uint256 ethBalanceBefore = address(this).balance;
 
         // Effects are applied before the adapter call. Any failed call or post-condition reverts them atomically.
@@ -337,6 +356,13 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         ethReserve = 0;
         graduated = true;
         graduatedAt = uint64(block.timestamp);
+        token.safeTransfer(reserveInitializer, tokensToBurn);
+        try IVOIDReserveBurner(reserveInitializer).burnCurveExcess(tokensToBurn) {}
+        catch {
+            revert MigrationFailed();
+        }
+        if (token.totalSupply() != supplyBefore - tokensToBurn) revert MigrationFailed();
+        emit GraduationExcessBurned(tokensToBurn, token.totalSupply());
         token.forceApprove(target, tokens);
         bytes32 outcomeId = bytes32(0);
         uint256 positionTokenId = 0;
@@ -348,6 +374,8 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         } catch {
             revert MigrationFailed();
         }
+        // Zero values are reserved adapter failure sentinels.
+        // slither-disable-next-line incorrect-equality
         if (outcomeId == bytes32(0) || positionTokenId == 0) revert MigrationFailed();
         try IVOIDPositionCustody(positionRecipient).isRegisteredPosition(positionTokenId, target) returns (bool valid) {
             if (!valid) revert MigrationFailed();
@@ -356,7 +384,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         }
         // nonReentrant blocks state-changing callbacks; this balance delta is the adapter success post-condition.
         // slither-disable-next-line reentrancy-balance
-        if (token.balanceOf(address(this)) != tokenBalanceBefore - tokens) revert MigrationFailed();
+        if (token.balanceOf(address(this)) != tokenBalanceBefore - reserveTokens) revert MigrationFailed();
         if (address(this).balance != ethBalanceBefore - eth) revert MigrationFailed();
 
         emit Graduated(target, positionRecipient, outcomeId, eth, tokens);
