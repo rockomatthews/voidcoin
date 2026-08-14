@@ -4,7 +4,11 @@ Review branch: `codex/audit-remediation`
 
 Previous reviewed commit: `45d6ab4a53d3b4ac8df1db0e432e36c44248cfec`
 
-Frozen remediation commit: `fb5c3eb955ca01931870a8dd1f744609e8e96a6c`.
+Prior frozen remediation commit: `fb5c3eb955ca01931870a8dd1f744609e8e96a6c`.
+
+Price-continuity burn delta commit: `0699124bb85b10c89f121e923bf82f38aefeabba`.
+
+The price-continuity delta adds the scoped launch-reserve burn, exact graduation liquidity formula, atomic rollback checks, and production-lifecycle Base fork coverage. This Solidity delta requires professional retest before Mainnet.
 
 See `REMEDIATION.md` for the exact delta and remaining blockers.
 
