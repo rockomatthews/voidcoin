@@ -55,6 +55,8 @@ The deployment creates the token, treasury vesting contract, continuous constant
 
 At graduation, the adapter creates or uses the official Base Uniswap v3 1% pool, initializes it from the actual migration asset ratio, and requires at least 99.9% of both assets to enter a full-range position. The NFT is minted directly into an immutable locker and cannot be released to the Safe for 12 months from graduation. At most 0.1% bounded rounding dust is routed to the Safe. See [`docs/UNISWAP_MIGRATION.md`](docs/UNISWAP_MIGRATION.md).
 
+The proposed 2 ETH virtual reserve and buyer-funded 25 ETH graduation threshold are modeled in [`docs/CURVE_PARAMETER_PROPOSAL.md`](docs/CURVE_PARAMETER_PROPOSAL.md) but remain intentionally unfrozen until the owner explicitly approves those exact values.
+
 The deployment does not accept Safe ownership, choose curve economics, unpause rename slots, or deploy the website.
 
 The exact Base Mainnet rehearsal, broadcast, verification, and post-deploy checklist is in [`docs/MAINNET_DEPLOYMENT.md`](docs/MAINNET_DEPLOYMENT.md).

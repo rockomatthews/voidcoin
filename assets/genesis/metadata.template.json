@@ -1,0 +1,10 @@
+{
+  "name": "VOIDCOIN",
+  "symbol": "VOID",
+  "description": "The coin that changes its identity when a holder sets a new burn record.",
+  "image": "ipfs://IMAGE_CID",
+  "interop": {
+    "type": "erc20",
+    "version": "1.0.0"
+  }
+}
