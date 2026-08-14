@@ -13,3 +13,5 @@ contracts/broadcast
 contracts/lib/forge-std
 .DS_Store
 *.log
+.env*
+!.env.example
