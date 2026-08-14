@@ -16,7 +16,6 @@ contract DeployVOIDCoin is Script {
     uint256 internal constant GRADUATION_THRESHOLD = 25 ether;
 
     function run() external returns (VOIDCoin token, VOIDTreasuryVesting vestingWallet) {
-        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address safe = vm.envAddress("SAFE_ADDRESS");
         string memory initialTokenURI = vm.envOr("INITIAL_TOKEN_URI", string(""));
 
@@ -27,7 +26,7 @@ contract DeployVOIDCoin is Script {
         );
         require(bytes(initialTokenURI).length > 0, "INITIAL_TOKEN_URI must be permanent metadata");
 
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast();
         VOIDUniswapV3Migration migrationTarget =
             new VOIDUniswapV3Migration(IVOIDUniswapV3PositionManager(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
         VOIDPositionLocker positionLocker =

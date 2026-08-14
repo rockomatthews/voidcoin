@@ -1,6 +1,6 @@
 # VOIDCOIN phase-two retest request
 
-Please retest frozen commit `de75754e2b842f2f5c072210957f252b1b1f7e2e` on `codex/audit-remediation` against the findings in `VOIDCOIN_Phase1_Security_Review.md`. The original proof file is preserved beside this request as `AuditPoC.t.sol`; it targets the frozen phase-one interfaces and is intentionally not part of the active test directory.
+Please retest the frozen commit recorded in `docs/audits/phase2/REVIEW_SCOPE.md` on `codex/audit-remediation` against the findings in `VOIDCOIN_Phase1_Security_Review.md`. The original proof file is preserved beside this request as `AuditPoC.t.sol`; it targets the frozen phase-one interfaces and is intentionally not part of the active test directory.
 
 ## Decisions now frozen for this retest
 

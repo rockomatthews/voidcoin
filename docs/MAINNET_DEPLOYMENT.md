@@ -10,7 +10,7 @@ Do not broadcast until all values are final and independently reviewed:
 - `INITIAL_TOKEN_URI` — permanent IPFS JSON for the supplied VOID logo and genesis identity.
 - `BASE_MAINNET_RPC_URL` — production Base RPC.
 - `BASESCAN_API_KEY` — source-verification credential.
-- `DEPLOYER_PRIVATE_KEY` — deployment-only key supplied locally; never commit or enter it into Vercel.
+- A funded deployment signer selected through Foundry's encrypted keystore (`--account`) or hardware-wallet (`--ledger` / `--trezor`) flow. Never place a raw private key in Vercel or repository environment files.
 
 The deployment script is Base Mainnet-only. It hardcodes the owner-approved 2 ETH virtual reserve and 25 ETH buyer-funded graduation threshold, pins the official Uniswap v3 NonfungiblePositionManager at `0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1`, deploys the migration adapter and immutable 12-month position locker, refuses an EOA Safe, and refuses empty genesis metadata.
 
@@ -23,6 +23,7 @@ anvil --fork-url "$BASE_MAINNET_RPC_URL"
 forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
   --root contracts \
   --rpc-url http://127.0.0.1:8545 \
+  --sender "$DEPLOYER_ADDRESS" \
   -vvvv
 ```
 
@@ -36,10 +37,13 @@ This is an explicit Mainnet spending gate:
 forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
   --root contracts \
   --rpc-url base_mainnet \
+  --account voidcoin-deployer \
   --broadcast \
   --verify \
   -vvvv
 ```
+
+Import the deployment wallet into Foundry's encrypted keystore interactively with `cast wallet import voidcoin-deployer --interactive`, or replace `--account voidcoin-deployer` with a supported hardware-wallet flag. The deployment wallet is only a gas payer; the deployed production Safe owns the protocol contracts directly.
 
 After broadcast:
 

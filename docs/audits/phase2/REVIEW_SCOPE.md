@@ -2,9 +2,7 @@
 
 Review branch: `codex/audit-remediation`
 
-Frozen review commit: `de75754e2b842f2f5c072210957f252b1b1f7e2e`
-
-The owner-approved burn escalation and curve economics are frozen in that commit. Later branch commits contain only repository/deployment hygiene and handoff documentation; any later Solidity, application, dependency, compiler, or deployment-script change requires a new recorded delta. Production Safe and genesis URI substitution require a final deployment-calldata delta review.
+The final frozen review hash will be recorded after the external-signer deployment hardening is verified and committed. Any later Solidity, application, dependency, compiler, or deployment-script change requires a new recorded delta. Production Safe and genesis URI substitution require a final deployment-calldata delta review.
 
 ## Solidity scope
 
