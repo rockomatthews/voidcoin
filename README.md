@@ -13,6 +13,8 @@ The website purpose and URL are permanent. Its displayed name, ticker, image, he
 - `contracts/src/VOIDCoin.sol` — non-upgradeable ERC-20 identity contract
 - `contracts/src/VOIDLaunch.sol` — deploys the token, continuous buyer-funded curve, and graduation-triggered treasury vesting
 - `contracts/src/VOIDBondingCurve.sol` — indefinite buy/sell curve that accumulates buyer ETH until migration
+- `contracts/src/VOIDUniswapV3Migration.sol` — Base Uniswap v3 graduation adapter with strict asset-use checks
+- `contracts/src/VOIDPositionLocker.sol` — immutable 12-month custody for the resulting LP position NFT
 - `contracts/test` — unit, fuzz, authorization, competitive-burn, curve, and migration tests
 - `contracts/script` — deployment with the production Safe installed directly as protocol owner
 - `drizzle` — Postgres schema migration
@@ -49,7 +51,9 @@ npm run contracts:security
 
 The security command runs Slither against the full launch dependency graph using the exact Solidity 0.8.30 binary and direct `solc` compilation. It intentionally bypasses Foundry build-info ingestion so unresolved AST references cannot be mistaken for a successful scan. Set `VOIDCOIN_SOLC_BIN` when the system `solc` command is not version 0.8.30.
 
-The deployment creates the token, treasury vesting contract, and a continuous constant-product bonding curve, then atomically deposits 98% of supply into the curve and 2% into the creator treasury. Treasury vesting cannot begin until successful graduation and lasts 12 months. Buyers provide all real ETH. The curve charges 1% on buys and sells and remains tradable after reaching the graduation threshold; only a successful Safe-triggered migration closes it. A failed migration leaves trading open. No creator-funded ETH is supplied.
+The deployment creates the token, treasury vesting contract, continuous constant-product bonding curve, Base Uniswap v3 migration adapter, and LP-position locker. It atomically deposits 98% of supply into the curve and 2% into the creator treasury. Treasury vesting cannot begin until successful graduation and lasts 12 months. Buyers provide all real ETH. The curve charges 1% on buys and sells and remains tradable after reaching the graduation threshold; only a successful Safe-triggered migration closes it. A failed migration leaves trading open. No creator-funded ETH is supplied.
+
+At graduation, the adapter creates or uses the official Base Uniswap v3 1% pool, initializes it from the actual migration asset ratio, and requires at least 99.9% of both assets to enter a full-range position. The NFT is minted directly into an immutable locker and cannot be released to the Safe for 12 months from graduation. At most 0.1% bounded rounding dust is routed to the Safe. See [`docs/UNISWAP_MIGRATION.md`](docs/UNISWAP_MIGRATION.md).
 
 The deployment does not accept Safe ownership, choose curve economics, unpause rename slots, or deploy the website.
 
@@ -67,4 +71,4 @@ Contract events are canonical. Neon is a moderation workflow and event-index cac
 
 ## Deployment posture
 
-This repository intentionally contains no deployed address, production secret, curve economics, migration target, Safe transaction, or active Mainnet configuration. Follow [the launch gates](docs/LAUNCH_GATES.md) in order. Burns are irreversible even when a proposal is rejected or outbid.
+This repository intentionally contains no deployed address, production secret, frozen curve economics, Safe transaction, or active Mainnet configuration. The Base migration adapter and 12-month locker are implemented but still require the independent retest. Follow [the launch gates](docs/LAUNCH_GATES.md) in order. Burns are irreversible even when a proposal is rejected or outbid.

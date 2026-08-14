@@ -32,7 +32,7 @@ This document maps the independent phase-one report to the current `codex/audit-
 
 ## Verification performed
 
-- 27 Foundry tests pass across unit, fuzz, and invariant suites.
+- 37 Foundry tests pass across unit, fuzz, invariant, migration-adapter, and position-locker suites.
 - Each invariant campaign executes 128,000 handler calls.
 - Curve invariants prove reserves remain backed, trading cannot reduce the pool invariant, and the curve cannot create token supply.
 - The application passes ESLint, 10 Vitest tests, TypeScript checking, and the production Next.js build.
@@ -40,9 +40,7 @@ This document maps the independent phase-one report to the current `codex/audit-
 
 ## Still blocked before Mainnet
 
-1. Implement and freeze the actual Base venue migration adapter.
-2. Freeze virtual reserve, graduation threshold, production Safe, position recipient/locker, and deployment calldata.
-3. Complete a local Base Mainnet-fork rehearsal of the exact adapter and parameters.
-4. Have the professional reviewer rerun the supplied proof cases, review these changes, and issue a written retest.
-5. Resolve all retest Critical/High findings before any broadcast or buyer funding.
-
+1. Freeze the virtual reserve, graduation threshold, production Safe, genesis metadata, and deployment calldata.
+2. Have the professional reviewer rerun the supplied proof cases and review the Base Uniswap v3 adapter plus immutable 12-month position locker.
+3. Repeat the already-passing live-state Base Mainnet-fork rehearsal with the final Safe and economic parameters.
+4. Resolve all retest Critical/High findings before any broadcast or buyer funding.

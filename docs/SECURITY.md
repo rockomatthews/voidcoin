@@ -30,7 +30,7 @@ Alchemy signatures are checked over the raw body. Receipt IDs are stored uniquel
 - IPFS publication is effectively irreversible; moderation must happen before pinning.
 - A prepared Safe transaction is not approval until its threshold executes and the event confirms.
 - Technical review does not evaluate securities, trademark, consumer-protection, tax, sanctions, or money-transmission obligations.
-- Bonding-curve and migration configuration is economic code. The virtual reserve controls price and slippage; the threshold controls migration eligibility. A faulty migration adapter can still lose funds during a successful call, so its frozen bytecode, Base venue integration, and resulting position custody require independent review and a complete local Base Mainnet-fork rehearsal.
+- Bonding-curve configuration is economic code. The virtual reserve controls price and slippage; the threshold controls migration eligibility. Graduation uses the official Base Uniswap v3 position manager, a fixed 1% pool fee, full-range ticks, a 99.9% minimum use requirement for both assets, and immutable 12-month NFT custody. The adapter and locker still require independent semantic review even though the live-state Base Mainnet-fork rehearsal passes.
 
 ## Static-analysis baseline
 

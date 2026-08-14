@@ -10,6 +10,8 @@ import {VOIDTreasuryVesting} from "../src/VOIDTreasuryVesting.sol";
 
 contract MockSafe {}
 
+contract MockPositionRecipient {}
+
 contract MockMigrationTarget {
     address public migratedToken;
     uint256 public migratedTokens;
@@ -35,7 +37,7 @@ contract MockMigrationTarget {
 contract VOIDLaunchTest is Test {
     address internal safe;
     address internal buyer = makeAddr("buyer");
-    address internal positionRecipient = makeAddr("lp-locker");
+    address internal positionRecipient;
     MockMigrationTarget internal migrationTarget;
     VOIDLaunch internal launch;
     VOIDCoin internal token;
@@ -44,6 +46,7 @@ contract VOIDLaunchTest is Test {
 
     function setUp() public {
         safe = address(new MockSafe());
+        positionRecipient = address(new MockPositionRecipient());
         migrationTarget = new MockMigrationTarget();
         launch = new VOIDLaunch(safe, address(migrationTarget), positionRecipient, 1 ether, 2 ether, "ipfs://genesis");
         token = launch.token();

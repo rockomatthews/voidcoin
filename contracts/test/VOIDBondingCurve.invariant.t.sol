@@ -60,7 +60,7 @@ contract VOIDBondingCurveInvariantTest is StdInvariant, Test {
         InvariantMigrationTarget target = new InvariantMigrationTarget();
         token = new VOIDCoin(address(this), address(this), address(0xBEEF), "ipfs://genesis");
         curve = new VOIDBondingCurve(
-            token, address(this), address(this), address(target), address(0xCAFE), 1 ether, 12 ether
+            token, address(this), address(this), address(target), address(target), 1 ether, 12 ether
         );
         token.transfer(address(curve), token.LAUNCH_ALLOCATION());
         curve.initializeTokenReserve();

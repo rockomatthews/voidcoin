@@ -83,7 +83,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
             address(token_) == address(0) || initialOwner == address(0) || reserveInitializer_ == address(0)
                 || migrationTarget_ == address(0) || positionRecipient_ == address(0)
         ) revert ZeroAddress();
-        if (migrationTarget_.code.length == 0) revert InvalidConfiguration();
+        if (migrationTarget_.code.length == 0 || positionRecipient_.code.length == 0) revert InvalidConfiguration();
         if (virtualEthReserve_ == 0 || graduationThreshold_ == 0) revert InvalidConfiguration();
         token = token_;
         reserveInitializer = reserveInitializer_;

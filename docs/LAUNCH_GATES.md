@@ -14,6 +14,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 ## 2. Local Base Mainnet-fork rehearsal
 
 - Rehearse the deployment against a local Base Mainnet fork without publishing contracts to another chain.
+- Rehearse migration through Base's official Uniswap v3 position manager and verify the NFT is registered in the immutable locker for 365 days from graduation.
 - Exercise direct production Safe ownership from construction with local impersonation.
 - Exercise approval, requested changes, replacement commitment, successive record challenges, wrong network, rejected transaction, and insufficient balance.
 - Confirm the deployer retains no owner authority.
@@ -35,11 +36,11 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 
 ## 5. Buyer-funded continuous bonding curve
 
-- Explicitly approve the virtual ETH reserve, buyer-funded graduation threshold, slippage behavior, remaining-token handling, migration target, pool fee, price range, recovery recipient, and position recipient. There is no auction duration or end price.
+- Explicitly approve the virtual ETH reserve and buyer-funded graduation threshold. The migration path is fixed to Base Uniswap v3, a 1% pool fee, full-range ticks, the Safe as bounded-dust recipient, and the repository's immutable 12-month position locker. There is no auction duration or end price.
 - Confirm the continuous curve receives exactly 980,000,000 VOID and the graduation-triggered 12-month treasury receives exactly 20,000,000 VOID.
 - Confirm the immutable curve fee is exactly 1% on buys and 1% on sells, with fees retained in accounted reserves.
-- Buyers—not the creator—supply every real ETH deposit. Confirm the reviewed migration target moves that ETH plus remaining VOID into the intended Uniswap pool.
-- Set the LP position recipient to an approved permanent or time-locked custody contract and verify the resulting position ownership after migration.
+- Buyers—not the creator—supply every real ETH deposit. Confirm the reviewed adapter places at least 99.9% of ETH and remaining VOID into the intended Uniswap position.
+- Verify the LP NFT is owned by `VOIDPositionLocker`, its unlock timestamp is exactly 365 days after graduation, and its immutable beneficiary is the production Safe.
 - Exercise buy, sell, forced-asset isolation, threshold eligibility, continued trading after threshold, failed migration rollback, and successful venue migration on a local Base Mainnet fork before publishing the production deployment.
 
 ## 6. Production services

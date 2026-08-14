@@ -7,8 +7,6 @@ VOIDCOIN supports Base Mainnet only. The application hard-codes chain ID `8453`;
 Do not broadcast until all values are final and independently reviewed:
 
 - `SAFE_ADDRESS` — deployed production Safe that will moderate metadata and own the curve.
-- `MIGRATION_TARGET` — reviewed Base contract that atomically creates or funds the intended post-graduation pool.
-- `POSITION_RECIPIENT` — approved LP-position locker or permanent custody recipient.
 - `VIRTUAL_ETH_RESERVE` — starting curve parameter in wei; this controls initial price and slippage.
 - `GRADUATION_THRESHOLD` — buyer-funded ETH threshold in wei.
 - `INITIAL_TOKEN_URI` — permanent IPFS JSON for the supplied VOID logo and genesis identity.
@@ -16,7 +14,7 @@ Do not broadcast until all values are final and independently reviewed:
 - `BASESCAN_API_KEY` — source-verification credential.
 - `DEPLOYER_PRIVATE_KEY` — deployment-only key supplied locally; never commit or enter it into Vercel.
 
-The deployment script refuses EOAs for the Safe or migration target and refuses zero curve parameters or empty genesis metadata.
+The deployment script is Base Mainnet-only. It pins the official Uniswap v3 NonfungiblePositionManager at `0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1`, deploys the migration adapter and immutable 12-month position locker, refuses an EOA Safe, and refuses zero curve parameters or empty genesis metadata.
 
 ## Rehearse without broadcasting
 
@@ -30,7 +28,7 @@ forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
   -vvvv
 ```
 
-Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% buy/sell fee, curve parameters, graduation-gated treasury vesting, and paused rename state.
+Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% buy/sell fee, curve parameters, graduation-gated treasury vesting, migration adapter, 12-month LP locker, and paused rename state.
 
 ## Broadcast and verify
 
@@ -47,9 +45,9 @@ forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
 
 After broadcast:
 
-1. Record the launch, token, curve, vesting-wallet, and migration-target addresses.
+1. Record the launch, token, curve, vesting, migration-adapter, and position-locker addresses.
 2. Confirm the Safe already owns both token and curve and the deployer has no protocol authority.
-3. Confirm the 20M creator allocation cannot release before successful graduation.
+3. Confirm the 20M creator allocation cannot release before successful graduation and the LP NFT cannot release for 365 days after graduation.
 4. Set Vercel `NEXT_PUBLIC_VOIDCOIN_ADDRESS` and `NEXT_PUBLIC_VOIDCOIN_DEPLOYMENT_BLOCK`.
 5. Configure the production RPC, database, private Blob store, Pinata, Resend, Alchemy webhook, admin email, WalletConnect ID, and secrets.
 6. Keep renaming paused until moderation, event indexing, email, and Safe calldata are verified against the live address.
