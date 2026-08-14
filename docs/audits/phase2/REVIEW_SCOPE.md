@@ -2,7 +2,7 @@
 
 Review branch: `codex/audit-remediation`
 
-The final commit hash will be recorded after the owner explicitly approves the proposed curve parameters and the production genesis metadata is published.
+The owner-approved burn escalation and curve economics are frozen in this branch. The exact review commit is the commit referenced in the professional handoff; production Safe and genesis URI substitution require a final deployment-calldata delta review.
 
 ## Solidity scope
 
@@ -29,6 +29,6 @@ The final commit hash will be recorded after the owner explicitly approves the p
 - Finding disposition: `docs/audits/phase1/REMEDIATION.md`
 - Retest questions: `docs/audits/phase1/PHASE2_RETEST_REQUEST.md`
 - Migration design: `docs/UNISWAP_MIGRATION.md`
-- Proposed economics awaiting explicit owner approval: `docs/CURVE_PARAMETER_PROPOSAL.md`
+- Frozen economics and modeling: `docs/CURVE_PARAMETERS.md`
 
 No Mainnet deployment, buyer funding, Safe execution, or liquidity migration has occurred.

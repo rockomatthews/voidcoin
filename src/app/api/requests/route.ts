@@ -8,7 +8,7 @@ import { getPublicClient } from "@/lib/chain";
 import { getDb, hasDatabase } from "@/lib/db";
 import { proposalSubmissions, renameRequests } from "@/lib/db/schema";
 import { sanitizeImage } from "@/lib/image";
-import { createCommitment, proposalSchema } from "@/lib/proposal";
+import { createCommitment, parseStrategicBurn, proposalSchema } from "@/lib/proposal";
 
 export async function GET(request: Request) {
   if (!hasDatabase()) return Response.json({ requests: [] });
@@ -58,7 +58,8 @@ export async function POST(request: Request) {
     const isReplacement = isActive && slot.burner.toLowerCase() === wallet.toLowerCase();
 
     const burnId = isReplacement ? slot.burnId : nextBurnId;
-    const burnAmount = isReplacement ? slot.burnAmount : nextBurnRequirement;
+    const requestedBurn = String(form.get("burnAmount") ?? "");
+    const burnAmount = isReplacement ? slot.burnAmount : parseStrategicBurn(requestedBurn, nextBurnRequirement);
     const salt = `0x${randomBytes(32).toString("hex")}` as Hex;
     const commitment = createCommitment({ chainId: configuredChainId(), contractAddress, burnId, burner: wallet, burnAmount, name: parsed.data.name, symbol: parsed.data.symbol, imageHash: sanitized.hash, metadataURIHash: zeroHash, salt });
     const blob = await put(`requests/${wallet.toLowerCase()}/${burnId}.${sanitized.extension}`, sanitized.bytes, { access: "private", contentType: sanitized.contentType, addRandomSuffix: true, cacheControlMaxAge: 60 });

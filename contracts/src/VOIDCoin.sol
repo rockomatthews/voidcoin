@@ -9,7 +9,8 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 /// @notice Fixed-supply ERC-20 whose public identity is controlled by an escalating burn record and Safe approval.
 contract VOIDCoin is ERC20, Ownable2Step {
     uint256 public constant ORIGINAL_SUPPLY = 1_000_000_000 ether;
-    uint256 public constant MINIMUM_INCREMENT = 1_000_000 ether;
+    uint256 public constant INITIAL_BURN = 1_000_000 ether;
+    uint256 public constant TAKEOVER_INCREMENT = 250_000 ether;
     uint256 public constant LAUNCH_ALLOCATION = 980_000_000 ether;
     uint256 public constant TREASURY_ALLOCATION = 20_000_000 ether;
     uint64 public constant SLOT_TTL = 72 hours;
@@ -37,7 +38,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     error NoActiveSlot();
     error NotActiveBurner();
     error ZeroCommitment();
-    error BurnRequirementChanged();
+    error BurnBelowRequirement();
     error InvalidName();
     error InvalidSymbol();
     error InvalidMetadataURI();
@@ -113,7 +114,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     }
 
     function nextBurnRequirement() public view returns (uint256) {
-        return recordBurn + MINIMUM_INCREMENT;
+        return recordBurn == 0 ? INITIAL_BURN : recordBurn + TAKEOVER_INCREMENT;
     }
 
     function proposalCommitment(
@@ -142,23 +143,23 @@ contract VOIDCoin is ERC20, Ownable2Step {
         );
     }
 
-    function burnForRename(uint256 expectedAmount, bytes32 commitment) external {
+    function burnForRename(uint256 burnAmount, bytes32 commitment) external {
         if (renamePaused) revert RenamePaused();
         if (commitment == bytes32(0)) revert ZeroCommitment();
         if (_activeSlot.lockedUntil != 0 && block.timestamp <= _activeSlot.lockedUntil) revert SlotLocked();
 
-        uint256 amount = nextBurnRequirement();
-        if (expectedAmount != amount) revert BurnRequirementChanged();
+        uint256 minimumAmount = nextBurnRequirement();
+        if (burnAmount < minimumAmount) revert BurnBelowRequirement();
         uint256 previousRecord = recordBurn;
         uint256 burnId = ++currentBurnId;
         uint64 openedAt = uint64(block.timestamp);
 
-        _burn(msg.sender, amount);
-        recordBurn = amount;
+        _burn(msg.sender, burnAmount);
+        recordBurn = burnAmount;
         recordBurner = msg.sender;
-        _activeSlot = RenameSlot(burnId, msg.sender, amount, commitment, openedAt, 0);
+        _activeSlot = RenameSlot(burnId, msg.sender, burnAmount, commitment, openedAt, 0);
 
-        emit RenameBurned(burnId, msg.sender, commitment, amount, previousRecord);
+        emit RenameBurned(burnId, msg.sender, commitment, burnAmount, previousRecord);
     }
 
     function replaceCommitment(bytes32 newCommitment) external {

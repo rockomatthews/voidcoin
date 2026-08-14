@@ -5,7 +5,7 @@ import { formatUnits } from "viem";
 import { useAccount, useChainId, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { WalletButton } from "@/components/wallet-button";
 import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
-import { BURN_INCREMENT, formatNumber } from "@/lib/site";
+import { INITIAL_BURN_REQUIREMENT, TAKEOVER_INCREMENT, formatNumber } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
 type PendingAuthorization = { id: string; wallet: string; commitment: `0x${string}`; proposedName: string; proposedSymbol: string };
@@ -22,7 +22,8 @@ export function BurnTerminal() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState("Fill the chamber to prepare a private commitment.");
   const [accepted, setAccepted] = useState(false);
-  const [requiredBurn, setRequiredBurn] = useState(BURN_INCREMENT);
+  const [requiredBurn, setRequiredBurn] = useState(INITIAL_BURN_REQUIREMENT);
+  const [burnAmount, setBurnAmount] = useState(String(INITIAL_BURN_REQUIREMENT));
   const [balanceState, setBalanceState] = useState<{ wallet: string; value: number } | null>(null);
   const [ownsActiveSlot, setOwnsActiveSlot] = useState(false);
   const [pendingAuthorization, setPendingAuthorization] = useState<PendingAuthorization | null>(null);
@@ -32,7 +33,9 @@ export function BurnTerminal() {
     fetch("/api/state", { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("state unavailable")))
       .then((state: { nextBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
-        setRequiredBurn(state.nextBurnAmount ?? BURN_INCREMENT);
+        const nextMinimum = state.nextBurnAmount ?? INITIAL_BURN_REQUIREMENT;
+        setRequiredBurn(nextMinimum);
+        setBurnAmount(String(nextMinimum));
         setOwnsActiveSlot(Boolean(address && state.activeSlot?.burner.toLowerCase() === address.toLowerCase()));
       })
       .catch(() => undefined);
@@ -63,6 +66,7 @@ export function BurnTerminal() {
 
   const balance = address && balanceState?.wallet.toLowerCase() === address.toLowerCase() ? balanceState.value : null;
   const authorization = address && pendingAuthorization?.wallet.toLowerCase() === address.toLowerCase() ? pendingAuthorization : null;
+  const burnAmountNumber = /^\d+$/.test(burnAmount) ? Number(burnAmount) : Number.NaN;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,6 +88,7 @@ export function BurnTerminal() {
       values.set("message", challenge.message);
       values.set("challengeToken", challenge.token);
       values.set("signature", signature);
+      values.set("burnAmount", burnAmount);
       const requestResponse = await fetch("/api/requests", { method: "POST", body: values });
       const prepared = await requestResponse.json();
       if (!requestResponse.ok) throw new Error(prepared.error ?? "Could not prepare proposal");
@@ -108,7 +113,9 @@ export function BurnTerminal() {
       formElement.reset();
       if (!isReplacement) {
         const spent = Number(burnAmountWei / 10n ** 18n);
-        setRequiredBurn(spent + BURN_INCREMENT);
+        const nextMinimum = spent + TAKEOVER_INCREMENT;
+        setRequiredBurn(nextMinimum);
+        setBurnAmount(String(nextMinimum));
         setBalanceState((current) => current === null ? null : { ...current, value: Math.max(0, current.value - spent) });
       }
       setAccepted(false);
@@ -143,8 +150,10 @@ export function BurnTerminal() {
     ? "The Base Mainnet contract has not been deployed yet."
     : !isConnected
       ? "Connect a wallet to enter the chamber."
-      : balance !== null && balance < requiredBurn && !ownsActiveSlot
-        ? `You need ${formatNumber(requiredBurn)} VOID to submit this change.`
+      : !ownsActiveSlot && (!Number.isSafeInteger(burnAmountNumber) || burnAmountNumber < requiredBurn)
+        ? `Set a whole-number burn of at least ${formatNumber(requiredBurn)} VOID.`
+      : balance !== null && balance < burnAmountNumber && !ownsActiveSlot
+        ? `You need ${formatNumber(burnAmountNumber)} VOID to submit this change.`
       : !accepted
         ? "Acknowledge the irreversible burn first."
         : null;
@@ -179,6 +188,11 @@ export function BurnTerminal() {
           <small>Used only for this moderation request.</small>
         </label>
         <label>
+          <span>YOUR RECORD BURN</span>
+          <input name="burnAmountDisplay" type="number" min={requiredBurn} max={1_000_000_000} step="1" inputMode="numeric" value={burnAmount} onChange={(event) => setBurnAmount(event.target.value)} disabled={ownsActiveSlot} required={!ownsActiveSlot} />
+          <small>Minimum {formatNumber(requiredBurn)} VOID. You may burn more to set a harder record.</small>
+        </label>
+        <label>
           <span>NEW IMAGE</span>
           <input name="image" type="file" required accept="image/png,image/jpeg,image/gif" />
           <small>Decoded PNG, JPEG, or GIF. 2 MB / 2048 px maximum.</small>
@@ -191,7 +205,7 @@ export function BurnTerminal() {
       <div className={`terminal-status phase-${phase}`} aria-live="polite"><span />{message}</div>
       {authorization ? <button className="primary-action" type="button" onClick={authorizeApprovedMetadata} disabled={phase === "burning" || phase === "confirming"}>AUTHORIZE APPROVED {authorization.proposedName} / ${authorization.proposedSymbol}</button> : null}
       <button className="primary-action" type="submit" disabled={Boolean(disabledReason) || phase === "burning" || phase === "confirming" || phase === "preparing" || phase === "signing"} title={disabledReason ?? undefined}>
-        {ownsActiveSlot ? "SUBMIT REPLACEMENT" : `BURN ${formatNumber(requiredBurn)} VOID + SUBMIT`}
+        {ownsActiveSlot ? "SUBMIT REPLACEMENT" : `BURN ${Number.isFinite(burnAmountNumber) ? formatNumber(burnAmountNumber) : "—"} VOID + SUBMIT`}
       </button>
     </form>
   );

@@ -7,14 +7,12 @@ VOIDCOIN supports Base Mainnet only. The application hard-codes chain ID `8453`;
 Do not broadcast until all values are final and independently reviewed:
 
 - `SAFE_ADDRESS` — deployed production Safe that will moderate metadata and own the curve.
-- `VIRTUAL_ETH_RESERVE` — starting curve parameter in wei; this controls initial price and slippage.
-- `GRADUATION_THRESHOLD` — buyer-funded ETH threshold in wei.
 - `INITIAL_TOKEN_URI` — permanent IPFS JSON for the supplied VOID logo and genesis identity.
 - `BASE_MAINNET_RPC_URL` — production Base RPC.
 - `BASESCAN_API_KEY` — source-verification credential.
 - `DEPLOYER_PRIVATE_KEY` — deployment-only key supplied locally; never commit or enter it into Vercel.
 
-The deployment script is Base Mainnet-only. It pins the official Uniswap v3 NonfungiblePositionManager at `0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1`, deploys the migration adapter and immutable 12-month position locker, refuses an EOA Safe, and refuses zero curve parameters or empty genesis metadata.
+The deployment script is Base Mainnet-only. It hardcodes the owner-approved 2 ETH virtual reserve and 25 ETH buyer-funded graduation threshold, pins the official Uniswap v3 NonfungiblePositionManager at `0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1`, deploys the migration adapter and immutable 12-month position locker, refuses an EOA Safe, and refuses empty genesis metadata.
 
 ## Rehearse without broadcasting
 
@@ -28,7 +26,7 @@ forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
   -vvvv
 ```
 
-Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% buy/sell fee, curve parameters, graduation-gated treasury vesting, migration adapter, 12-month LP locker, and paused rename state.
+Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% buy/sell fee, 2 ETH virtual reserve, 25 ETH buyer-funded threshold, graduation-gated treasury vesting, migration adapter, 12-month LP locker, and paused rename state.
 
 ## Broadcast and verify
 

@@ -12,12 +12,12 @@ import {VOIDPositionLocker} from "../src/VOIDPositionLocker.sol";
 
 contract DeployVOIDCoin is Script {
     address internal constant BASE_UNISWAP_V3_POSITION_MANAGER = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
+    uint256 internal constant VIRTUAL_ETH_RESERVE = 2 ether;
+    uint256 internal constant GRADUATION_THRESHOLD = 25 ether;
 
     function run() external returns (VOIDCoin token, VOIDTreasuryVesting vestingWallet) {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address safe = vm.envAddress("SAFE_ADDRESS");
-        uint256 virtualEthReserve = vm.envUint("VIRTUAL_ETH_RESERVE");
-        uint256 graduationThreshold = vm.envUint("GRADUATION_THRESHOLD");
         string memory initialTokenURI = vm.envOr("INITIAL_TOKEN_URI", string(""));
 
         require(safe.code.length > 0, "SAFE_ADDRESS must be a deployed Base Mainnet contract");
@@ -25,8 +25,6 @@ contract DeployVOIDCoin is Script {
         require(
             BASE_UNISWAP_V3_POSITION_MANAGER.code.length > 0, "Official Base Uniswap v3 position manager is unavailable"
         );
-        require(virtualEthReserve > 0, "VIRTUAL_ETH_RESERVE must be nonzero");
-        require(graduationThreshold > 0, "GRADUATION_THRESHOLD must be nonzero");
         require(bytes(initialTokenURI).length > 0, "INITIAL_TOKEN_URI must be permanent metadata");
 
         vm.startBroadcast(deployerKey);
@@ -38,8 +36,8 @@ contract DeployVOIDCoin is Script {
             safe,
             address(migrationTarget),
             address(positionLocker),
-            virtualEthReserve,
-            graduationThreshold,
+            VIRTUAL_ETH_RESERVE,
+            GRADUATION_THRESHOLD,
             initialTokenURI
         );
         vm.stopBroadcast();
@@ -56,8 +54,8 @@ contract DeployVOIDCoin is Script {
         console2.log("Uniswap v3 pool fee:", migrationTarget.POOL_FEE());
         console2.log("12-month position locker:", address(positionLocker));
         console2.log("Position unlock duration:", positionLocker.LOCK_DURATION());
-        console2.log("Virtual ETH reserve:", virtualEthReserve);
-        console2.log("Graduation threshold:", graduationThreshold);
+        console2.log("Virtual ETH reserve:", VIRTUAL_ETH_RESERVE);
+        console2.log("Graduation threshold:", GRADUATION_THRESHOLD);
         console2.log("Token owner Safe:", token.owner());
         console2.log("Competitive renaming paused:", token.renamePaused());
     }

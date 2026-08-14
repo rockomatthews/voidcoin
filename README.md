@@ -1,6 +1,6 @@
 # VOIDCOIN
 
-VOIDCOIN is a Base-native, escalating-burn identity protocol. The token launches as **VOIDCOIN (`VOID`)** with a fixed one-billion supply. The contract automatically burns 1,000,000 VOID for the first challenge, 2,000,000 for the second, 3,000,000 for the third, and so on. The current record holder controls the private rename proposal, while the owner Safe alone may apply an acceptable name, ticker, and ERC-1046-style metadata URI.
+VOIDCOIN is a Base-native, escalating-burn identity protocol. The token launches as **VOIDCOIN (`VOID`)** with a fixed one-billion supply. The first challenge must burn at least 1,000,000 VOID. Every takeover must burn at least 250,000 VOID more than the current record, but a challenger may voluntarily burn more to set a harder record. The current record holder controls the private rename proposal, while the owner Safe alone may apply an acceptable name, ticker, and ERC-1046-style metadata URI.
 
 The website purpose and URL are permanent. Its displayed name, ticker, image, header, hero, and browser title always follow the current approved token identity.
 
@@ -55,9 +55,9 @@ The deployment creates the token, treasury vesting contract, continuous constant
 
 At graduation, the adapter creates or uses the official Base Uniswap v3 1% pool, initializes it from the actual migration asset ratio, and requires at least 99.9% of both assets to enter a full-range position. The NFT is minted directly into an immutable locker and cannot be released to the Safe for 12 months from graduation. At most 0.1% bounded rounding dust is routed to the Safe. See [`docs/UNISWAP_MIGRATION.md`](docs/UNISWAP_MIGRATION.md).
 
-The proposed 2 ETH virtual reserve and buyer-funded 25 ETH graduation threshold are modeled in [`docs/CURVE_PARAMETER_PROPOSAL.md`](docs/CURVE_PARAMETER_PROPOSAL.md) but remain intentionally unfrozen until the owner explicitly approves those exact values.
+The deployment uses the owner-approved 2 ETH virtual reserve and buyer-funded 25 ETH graduation threshold. Their modeled consequences are documented in [`docs/CURVE_PARAMETERS.md`](docs/CURVE_PARAMETERS.md).
 
-The deployment does not accept Safe ownership, choose curve economics, unpause rename slots, or deploy the website.
+The deployment does not create or control the production Safe, unpause rename slots, broadcast itself, or deploy the website.
 
 The exact Base Mainnet rehearsal, broadcast, verification, and post-deploy checklist is in [`docs/MAINNET_DEPLOYMENT.md`](docs/MAINNET_DEPLOYMENT.md).
 
@@ -65,7 +65,7 @@ The exact Base Mainnet rehearsal, broadcast, verification, and post-deploy check
 
 1. The browser requests a short-lived HMAC challenge and verifies ownership with an EIP-191 wallet signature.
 2. The server validates the real image format, decodes it with `sharp`, strips metadata, stores the clean asset in private Blob storage, and computes the exact onchain commitment.
-3. The contract enforces exactly the next level through `burnForRename`: the prior record plus 1,000,000 VOID. The expected level is included in the transaction so a stale submission reverts before any tokens burn. A new record immediately supersedes any pending leader.
+3. The contract enforces a minimum through `burnForRename`: 1,000,000 VOID initially, then the prior record plus 250,000 VOID. A challenger may choose a higher amount, which becomes the new record and is bound into the private commitment. A stale submission reverts before burning if its chosen amount no longer clears the onchain minimum. A new record immediately supersedes any pending leader.
 4. The moderator enters `/admin` through an allowlisted magic link. Request changes lets the current record holder replace the proposal without burning again. Approval publishes the cleaned asset, then requires the burner to bind the exact final IPFS metadata URI without another burn.
 5. After that authorization, the application prepares an ordered Safe batch that briefly locks the record and applies the identity. The token changes only when the Safe executes it onchain.
 
@@ -73,4 +73,4 @@ Contract events are canonical. Neon is a moderation workflow and event-index cac
 
 ## Deployment posture
 
-This repository intentionally contains no deployed address, production secret, frozen curve economics, Safe transaction, or active Mainnet configuration. The Base migration adapter and 12-month locker are implemented but still require the independent retest. Follow [the launch gates](docs/LAUNCH_GATES.md) in order. Burns are irreversible even when a proposal is rejected or outbid.
+This repository intentionally contains no deployed address, production secret, Safe transaction, or active Mainnet configuration. The burn escalation and curve economics are frozen in code, while the Base migration adapter and 12-month locker still require the independent retest. Follow [the launch gates](docs/LAUNCH_GATES.md) in order. Burns are irreversible even when a proposal is rejected or outbid.

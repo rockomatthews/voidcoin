@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BURN_INCREMENT, formatNumber, shortAddress } from "@/lib/site";
+import { INITIAL_BURN_REQUIREMENT, formatNumber, shortAddress } from "@/lib/site";
 
 interface ChainState {
   originalSupply: number;
@@ -39,7 +39,7 @@ interface MarketState {
   priceChange24h: number | null;
 }
 
-const previewState: ChainState = { originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, recordBurn: 0, nextBurnAmount: BURN_INCREMENT, recordBurner: null };
+const previewState: ChainState = { originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null };
 const previewMarket: MarketState = { priceUsd: null, marketCap: null, liquidityUsd: null, volume24h: null, priceChange24h: null };
 
 function usd(value: number | null) {
@@ -114,7 +114,7 @@ export function ProtocolStats() {
         <div className="ritual-grid">
           <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your VOID balance.</p></article>
           <article><b>02</b><h3>Build the next identity</h3><p>Choose the next name, ticker, and image. The proposal stays private during review.</p></article>
-          <article><b>03</b><h3>Beat the burn</h3><p>The sequence is 1,000,000, 2,000,000, 3,000,000 VOID, and onward. Every new identity must burn more than the last.</p></article>
+          <article><b>03</b><h3>Beat the burn</h3><p>The first record is at least 1,000,000 VOID. Every challenger must burn at least 250,000 VOID more—and may set a higher strategic record.</p></article>
           <article><b>04</b><h3>Change everything</h3><p>Once approved, the token image, name, ticker, header, hero, title, and archive update together.</p></article>
         </div>
       </section>

@@ -7,7 +7,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Application lint, unit tests, and production build pass.
 - Foundry unit, fuzz, invariant, and static-analysis checks pass.
 - `npm run contracts:security` completes with zero Slither findings and no parser errors.
-- Verify the contract-enforced burn sequence is exactly 1M, 2M, 3M, and onward and cannot be caller-selected.
+- Verify the contract-enforced floor is 1M initially and the current record plus 250K thereafter. Confirm a challenger may burn more than the floor, the chosen amount becomes the record, and amounts below the live floor revert before burning.
 - Upload privacy, authorization, duplicate event, and webhook retry tests pass.
 - Desktop, mobile, keyboard, screen-reader, and reduced-motion review is complete.
 
@@ -36,7 +36,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 
 ## 5. Buyer-funded continuous bonding curve
 
-- Explicitly approve the virtual ETH reserve and buyer-funded graduation threshold. The migration path is fixed to Base Uniswap v3, a 1% pool fee, full-range ticks, the Safe as bounded-dust recipient, and the repository's immutable 12-month position locker. There is no auction duration or end price.
+- Verify the frozen 2 ETH virtual reserve and 25 ETH buyer-funded graduation threshold. The migration path is fixed to Base Uniswap v3, a 1% pool fee, full-range ticks, the Safe as bounded-dust recipient, and the repository's immutable 12-month position locker. There is no auction duration or end price.
 - Confirm the continuous curve receives exactly 980,000,000 VOID and the graduation-triggered 12-month treasury receives exactly 20,000,000 VOID.
 - Confirm the immutable curve fee is exactly 1% on buys and 1% on sells, with fees retained in accounted reserves.
 - Buyers—not the creator—supply every real ETH deposit. Confirm the reviewed adapter places at least 99.9% of ETH and remaining VOID into the intended Uniswap position.

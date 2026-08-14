@@ -1,11 +1,11 @@
-# Curve parameter proposal requiring owner approval
+# Frozen curve parameters
 
-These values are recommended but are not yet hardcoded into the deployment script:
+The owner approved these values and the Base Mainnet deployment script hardcodes them:
 
 - Virtual ETH reserve: `2 ether`
 - Buyer-funded graduation threshold: `25 ether`
-- Existing fixed curve fee: 1% on buys and 1% on sells
-- Existing initial curve inventory: 980,000,000 VOID
+- Curve fee: 1% on buys and 1% on sells
+- Initial curve inventory: 980,000,000 VOID
 
 The creator does not contribute the 25 ETH. Buyers supply it through ordinary curve purchases. There is no deadline: if demand never reaches 25 ETH, the curve stays open and holders can continue buying and selling against its real ETH reserve.
 

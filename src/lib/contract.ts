@@ -6,7 +6,7 @@ export const voidCoinAbi = [
     name: "burnForRename",
     stateMutability: "nonpayable",
     inputs: [
-      { name: "expectedAmount", type: "uint256" },
+      { name: "burnAmount", type: "uint256" },
       { name: "commitment", type: "bytes32" },
     ],
     outputs: [],

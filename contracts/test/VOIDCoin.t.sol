@@ -50,7 +50,7 @@ contract VOIDCoinTest is Test {
         assertEq(token.destroyedSupply(), amount);
         assertEq(token.recordBurn(), amount);
         assertEq(token.recordBurner(), firstBurner);
-        assertEq(token.nextBurnRequirement(), 2_000_000 ether);
+        assertEq(token.nextBurnRequirement(), 1_250_000 ether);
         assertEq(token.activeSlot().burnAmount, amount);
 
         vm.prank(safe);
@@ -62,14 +62,28 @@ contract VOIDCoinTest is Test {
         assertEq(token.recordBurn(), amount);
     }
 
-    function testChallengerAutomaticallyBurnsNextIncrement() public {
+    function testChallengerCanBurnMinimumNextIncrement() public {
         _unpause();
         _burn(firstBurner, keccak256("first"));
 
         _burn(challenger, keccak256("challenge"));
         assertEq(token.recordBurner(), challenger);
-        assertEq(token.recordBurn(), 2_000_000 ether);
+        assertEq(token.recordBurn(), 1_250_000 ether);
         assertEq(token.activeSlot().burner, challenger);
+        assertEq(token.destroyedSupply(), 2_250_000 ether);
+    }
+
+    function testChallengerCanSetHigherStrategicRecord() public {
+        _unpause();
+        _burn(firstBurner, keccak256("first"));
+
+        uint256 strategicBurn = 2_000_000 ether;
+        vm.prank(challenger);
+        token.burnForRename(strategicBurn, keccak256("strategic"));
+
+        assertEq(token.recordBurner(), challenger);
+        assertEq(token.recordBurn(), strategicBurn);
+        assertEq(token.nextBurnRequirement(), 2_250_000 ether);
         assertEq(token.destroyedSupply(), 3_000_000 ether);
     }
 
@@ -83,7 +97,7 @@ contract VOIDCoinTest is Test {
         assertEq(token.balanceOf(firstBurner), firstBalanceAfterBurn);
         assertEq(token.activeSlot().burner, challenger);
         assertEq(token.activeSlot().burnId, 2);
-        assertEq(token.nextBurnRequirement(), 3_000_000 ether);
+        assertEq(token.nextBurnRequirement(), 1_500_000 ether);
     }
 
     function testLeaderCanReplaceCommitmentWithoutAnotherBurn() public {
@@ -122,7 +136,7 @@ contract VOIDCoinTest is Test {
             salt
         );
         vm.prank(firstBurner);
-        token.burnForRename(2_000_000 ether, commitment);
+        token.burnForRename(1_250_000 ether, commitment);
 
         vm.expectRevert(VOIDCoin.CommitmentMismatch.selector);
         vm.prank(safe);
@@ -135,7 +149,7 @@ contract VOIDCoinTest is Test {
         _burn(firstBurner, keccak256("first"));
         uint256 challengerBalance = token.balanceOf(challenger);
 
-        vm.expectRevert(VOIDCoin.BurnRequirementChanged.selector);
+        vm.expectRevert(VOIDCoin.BurnBelowRequirement.selector);
         vm.prank(challenger);
         token.burnForRename(staleAmount, keccak256("stale"));
 
@@ -208,21 +222,22 @@ contract VOIDCoinTest is Test {
 
     function testFuzzSuccessiveRecordsPermanentlyReduceSupply(uint8 burnCount) public {
         burnCount = uint8(bound(burnCount, 1, 12));
-        uint256 requiredBalance = uint256(burnCount) * (uint256(burnCount) + 1) / 2 * 1_000_000 ether;
+        uint256 count = uint256(burnCount);
+        uint256 requiredBalance = count * token.INITIAL_BURN() + (count * (count - 1) / 2) * token.TAKEOVER_INCREMENT();
         vm.prank(launch);
         token.transfer(firstBurner, requiredBalance);
         _unpause();
 
         uint256 expectedDestroyed;
         for (uint256 i = 1; i <= burnCount; ++i) {
-            uint256 amount = i * 1_000_000 ether;
+            uint256 amount = token.INITIAL_BURN() + (i - 1) * token.TAKEOVER_INCREMENT();
             _burn(firstBurner, keccak256(abi.encode(i)));
             expectedDestroyed += amount;
         }
 
         assertEq(token.destroyedSupply(), expectedDestroyed);
         assertEq(token.totalSupply(), token.ORIGINAL_SUPPLY() - expectedDestroyed);
-        assertEq(token.nextBurnRequirement(), (uint256(burnCount) + 1) * 1_000_000 ether);
+        assertEq(token.nextBurnRequirement(), token.INITIAL_BURN() + count * token.TAKEOVER_INCREMENT());
     }
 
     function _unpause() internal {

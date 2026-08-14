@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { BURN_INCREMENT, formatNumber } from "@/lib/site";
+import { INITIAL_BURN_REQUIREMENT, formatNumber } from "@/lib/site";
 
 interface CurrentIdentity {
   name: string;
@@ -14,7 +14,7 @@ const genesis: CurrentIdentity = { name: "VOIDCOIN", symbol: "VOID", image: "/vo
 
 export function DynamicIdentityHero() {
   const [identity, setIdentity] = useState(genesis);
-  const [nextBurn, setNextBurn] = useState(BURN_INCREMENT);
+  const [nextBurn, setNextBurn] = useState(INITIAL_BURN_REQUIREMENT);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -54,7 +54,7 @@ export function DynamicIdentityHero() {
         <div className="void-orbit"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><Image src={image} alt={`${identity.name} current token image`} width={116} height={116} priority unoptimized={remoteImage} /></div>
         <p className="void-label">THE COIN THAT CHANGES ITS SKIN</p>
         <h1 id="void-title"><strong>{identity.name}</strong><span>${identity.symbol}</span></h1>
-        <p className="void-message">The first identity change burns <b>{formatNumber(BURN_INCREMENT)} VOID</b>—0.1% of the original supply. The next costs 2,000,000, then 3,000,000, then 4,000,000. Every change must burn more than the one before it.</p>
+        <p className="void-message">The first identity change burns at least <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} VOID</b>—0.1% of the original supply. Every challenger must beat the record by at least 250,000 VOID and may burn more to make the next takeover harder.</p>
         <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} VOID</strong></div>
         <div className="void-attributes" aria-label="Changeable token identity"><span>NAME</span><span>TICKER</span><span>PICTURE</span></div>
         <p className="void-note">The current approved name, ticker, image, and browser title all change together. The purpose of this website does not.</p>

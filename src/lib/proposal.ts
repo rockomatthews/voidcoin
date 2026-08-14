@@ -2,6 +2,7 @@ import {
   encodeAbiParameters,
   isAddress,
   keccak256,
+  parseUnits,
   parseAbiParameters,
   type Address,
   type Hex,
@@ -30,6 +31,16 @@ export interface CommitmentInput {
   imageHash: Hex;
   metadataURIHash: Hex;
   salt: Hex;
+}
+
+const MAX_BURN = 1_000_000_000n * 10n ** 18n;
+
+export function parseStrategicBurn(input: string, minimum: bigint): bigint {
+  if (!/^\d+$/.test(input)) throw new Error("Burn amount must be a whole number of VOID");
+  const amount = parseUnits(input, 18);
+  if (amount < minimum) throw new Error(`Burn amount must be at least ${minimum / 10n ** 18n} VOID`);
+  if (amount > MAX_BURN) throw new Error("Burn amount cannot exceed the original VOID supply");
+  return amount;
 }
 
 export function createCommitment(input: CommitmentInput): Hex {
