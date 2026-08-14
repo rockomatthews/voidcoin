@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { INITIAL_BURN_REQUIREMENT, formatNumber, shortAddress } from "@/lib/site";
 
 interface ChainState {
+  name: string;
+  symbol: string;
   originalSupply: number;
   currentSupply: number;
   burned: number;
@@ -39,7 +41,7 @@ interface MarketState {
   priceChange24h: number | null;
 }
 
-const previewState: ChainState = { originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null };
+const previewState: ChainState = { name: "VOIDCOIN", symbol: "VOID", originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null };
 const previewMarket: MarketState = { priceUsd: null, marketCap: null, liquidityUsd: null, volume24h: null, priceChange24h: null };
 
 function usd(value: number | null) {
@@ -70,7 +72,7 @@ export function ProtocolStats() {
         setMarket(nextMarket);
       }).catch(() => undefined);
     void load();
-    const interval = window.setInterval(load, 30_000);
+    const interval = window.setInterval(load, 10_000);
     return () => { controller.abort(); window.clearInterval(interval); };
   }, []);
 
@@ -91,7 +93,7 @@ export function ProtocolStats() {
 
   return (
     <>
-      <section className="stats-band" aria-label="VOIDCOIN supply statistics">
+      <section className="stats-band" aria-label={`${state.name} supply statistics`}>
         <article><span>BURNED FOREVER</span><strong>{formatNumber(state.burned)}</strong><small>{((state.burned / state.originalSupply) * 100).toFixed(3)}% OF ORIGINAL SUPPLY</small></article>
         <article><span>DESTROYED VALUE</span><strong>{usd(burnedValue)}</strong><small>{market.priceUsd === null ? "AVAILABLE AFTER TRADING BEGINS" : `AT ${usd(market.priceUsd)} PER TOKEN`}</small></article>
         <article><span>CURRENT SUPPLY</span><strong>{formatNumber(state.currentSupply)}</strong><small>OUT OF {formatNumber(state.originalSupply)} MINTED</small></article>
@@ -105,26 +107,26 @@ export function ProtocolStats() {
           <article><span>LIQUIDITY</span><strong>{usd(market.liquidityUsd)}</strong></article>
           <article><span>24H VOLUME</span><strong>{usd(market.volume24h)}</strong></article>
           <article><span>24H CHANGE</span><strong className={(market.priceChange24h ?? 0) >= 0 ? "positive" : "negative"}>{market.priceChange24h === null ? "—" : `${market.priceChange24h > 0 ? "+" : ""}${market.priceChange24h.toFixed(1)}%`}</strong></article>
-          <article><span>NEXT BURN</span><strong>{formatNumber(state.nextBurnAmount)} VOID</strong></article>
+          <article><span>NEXT BURN</span><strong>{formatNumber(state.nextBurnAmount)} {state.symbol}</strong></article>
         </div>
       </section>
 
       <section className="ritual-section" aria-labelledby="ritual-heading">
         <div className="section-heading"><span>THE RITUAL</span><h2 id="ritual-heading">HOW IT WORKS</h2></div>
         <div className="ritual-grid">
-          <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your VOID balance.</p></article>
+          <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your {state.symbol} balance.</p></article>
           <article><b>02</b><h3>Build the next identity</h3><p>Choose the next name, ticker, and image. The proposal stays private during review.</p></article>
-          <article><b>03</b><h3>Beat the burn</h3><p>The first record is at least 1,000,000 VOID. Every challenger adds at least 250,000 VOID and may add up to a 2,000,000 VOID strategic premium.</p></article>
+          <article><b>03</b><h3>Beat the burn</h3><p>The first record is at least 1,000,000 tokens. Every challenger adds at least 250,000 tokens and may add up to a 2,000,000-token strategic premium.</p></article>
           <article><b>04</b><h3>Change everything</h3><p>Once approved, the token image, name, ticker, header, hero, title, and archive update together.</p></article>
         </div>
       </section>
 
       <section className="burners-section" aria-labelledby="burners-heading">
         <div className="section-heading"><span>HALL OF FAME</span><h2 id="burners-heading">TOP BURNERS</h2></div>
-        <p className="section-intro">The wallets that have permanently destroyed the most VOID in the fight to control its identity.</p>
+        <p className="section-intro">The wallets that have permanently destroyed the most {state.symbol} in the fight to control its identity.</p>
         <div className="burners-grid">
           {topBurners.length ? topBurners.map((burner, index) => (
-            <article key={burner.wallet}><b>#{index + 1}</b><strong>{formatNumber(burner.tokens)} VOID</strong><span>{burner.changes} {burner.changes === 1 ? "burn" : "burns"}</span><a href={`https://basescan.org/address/${burner.wallet}`} target="_blank" rel="noreferrer">{shortAddress(burner.wallet)} ↗</a></article>
+            <article key={burner.wallet}><b>#{index + 1}</b><strong>{formatNumber(burner.tokens)} {state.symbol}</strong><span>{burner.changes} {burner.changes === 1 ? "burn" : "burns"}</span><a href={`https://basescan.org/address/${burner.wallet}`} target="_blank" rel="noreferrer">{shortAddress(burner.wallet)} ↗</a></article>
           )) : <div className="stats-empty">THE FIRST BURNER WILL APPEAR HERE.</div>}
         </div>
       </section>
@@ -134,7 +136,7 @@ export function ProtocolStats() {
         <div className="changes-table-wrap">
           <table><thead><tr><th>When</th><th>Identity</th><th>Burned</th><th>By</th><th>Transactions</th></tr></thead>
             <tbody>{changes.length ? changes.slice(0, 12).map((identity) => (
-              <tr key={identity.burnId}><td>{when(identity.timestamp)}</td><td><strong>{identity.name}</strong> / ${identity.symbol}</td><td>{formatNumber(identity.burnAmount)} VOID</td><td><a href={`https://basescan.org/address/${identity.burner}`} target="_blank" rel="noreferrer">{shortAddress(identity.burner)}</a></td><td>{identity.burnTransactionHash ? <a href={`https://basescan.org/tx/${identity.burnTransactionHash}`} target="_blank" rel="noreferrer">BURN ↗</a> : null}{identity.transactionHash ? <a href={`https://basescan.org/tx/${identity.transactionHash}`} target="_blank" rel="noreferrer">UPDATE ↗</a> : null}</td></tr>
+              <tr key={identity.burnId}><td>{when(identity.timestamp)}</td><td><strong>{identity.name}</strong> / ${identity.symbol}</td><td>{formatNumber(identity.burnAmount)} {state.symbol}</td><td><a href={`https://basescan.org/address/${identity.burner}`} target="_blank" rel="noreferrer">{shortAddress(identity.burner)}</a></td><td>{identity.burnTransactionHash ? <a href={`https://basescan.org/tx/${identity.burnTransactionHash}`} target="_blank" rel="noreferrer">BURN ↗</a> : null}{identity.transactionHash ? <a href={`https://basescan.org/tx/${identity.transactionHash}`} target="_blank" rel="noreferrer">UPDATE ↗</a> : null}</td></tr>
             )) : <tr><td colSpan={5}>NO IDENTITY CHANGES YET.</td></tr>}</tbody>
           </table>
         </div>

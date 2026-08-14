@@ -2,11 +2,12 @@ import { formatUnits } from "viem";
 import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
 import { INITIAL_BURN_REQUIREMENT, INITIAL_TOKEN_NAME, INITIAL_TOKEN_SYMBOL, MAX_STRATEGIC_PREMIUM, ORIGINAL_SUPPLY } from "@/lib/site";
+import { imageFromTokenURI } from "@/lib/token-metadata";
 
 export async function GET() {
   const address = configuredContractAddress();
   if (!address) {
-    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
+    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, image: "/voidcoin-logo.png", tokenURI: null, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
   }
 
   try {
@@ -24,6 +25,7 @@ export async function GET() {
       client.readContract({ address, abi: voidCoinAbi, functionName: "maximumBurnAmount" }),
       client.readContract({ address, abi: voidCoinAbi, functionName: "recordBurner" }),
     ]);
+    const image = await imageFromTokenURI(uri);
     return Response.json({
       mode: "live",
       configured: true,
@@ -31,6 +33,7 @@ export async function GET() {
       name,
       symbol,
       tokenURI: uri,
+      image,
       originalSupply: ORIGINAL_SUPPLY,
       currentSupply: Number(formatUnits(supply, 18)),
       burned: Number(formatUnits(burned, 18)),
@@ -40,7 +43,7 @@ export async function GET() {
       recordBurner: recordHolder === "0x0000000000000000000000000000000000000000" ? null : recordHolder,
       renamePaused: paused,
       activeSlot: slot.burner === "0x0000000000000000000000000000000000000000" ? null : { burnId: slot.burnId.toString(), burner: slot.burner, burnAmount: Number(formatUnits(slot.burnAmount, 18)), commitment: slot.commitment, openedAt: Number(slot.openedAt), lockedUntil: Number(slot.lockedUntil) },
-    });
+    }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Could not read Base state" }, { status: 502 });
   }

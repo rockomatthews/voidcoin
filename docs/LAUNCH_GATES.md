@@ -49,6 +49,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Supply the domain, production RPC, Alchemy signing key, Neon database, private Blob store, Pinata account, Resend sender, admin email, WalletConnect project ID, and authentication secret.
 - Apply the migration and configure the verified webhook URL.
 - Review Vercel Preview first. Verify canonical, Open Graph, X, iMessage preview, security headers, logs, and private routes.
+- Execute a complete approved rename through the test Safe and prove the contract's `name()`, `symbol()`, and `tokenURI()` change together; then prove the public header, hero, current image, ticker labels, browser title, social metadata, and prior-identity gallery follow that exact onchain state.
 - Promote that exact tested artifact to Production.
 
 ## 7. Activation

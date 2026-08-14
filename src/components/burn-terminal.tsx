@@ -24,6 +24,7 @@ export function BurnTerminal() {
   const [accepted, setAccepted] = useState(false);
   const [requiredBurn, setRequiredBurn] = useState(INITIAL_BURN_REQUIREMENT);
   const [maximumBurn, setMaximumBurn] = useState(INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM);
+  const [tokenSymbol, setTokenSymbol] = useState("VOID");
   const [burnAmount, setBurnAmount] = useState(String(INITIAL_BURN_REQUIREMENT));
   const [balanceState, setBalanceState] = useState<{ wallet: string; value: number } | null>(null);
   const [ownsActiveSlot, setOwnsActiveSlot] = useState(false);
@@ -33,8 +34,9 @@ export function BurnTerminal() {
     const controller = new AbortController();
     fetch("/api/state", { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("state unavailable")))
-      .then((state: { nextBurnAmount?: number; maximumBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
+      .then((state: { symbol?: string; nextBurnAmount?: number; maximumBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
         const nextMinimum = state.nextBurnAmount ?? INITIAL_BURN_REQUIREMENT;
+        if (state.symbol) setTokenSymbol(state.symbol);
         setRequiredBurn(nextMinimum);
         setMaximumBurn(state.maximumBurnAmount ?? nextMinimum + MAX_STRATEGIC_PREMIUM);
         setBurnAmount(String(nextMinimum));
@@ -43,6 +45,17 @@ export function BurnTerminal() {
       .catch(() => undefined);
     return () => controller.abort();
   }, [address]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadIdentity = () => fetch("/api/state", { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("state unavailable")))
+      .then((state: { symbol?: string }) => { if (state.symbol) setTokenSymbol(state.symbol); })
+      .catch(() => undefined);
+    void loadIdentity();
+    const interval = window.setInterval(loadIdentity, 10_000);
+    return () => { controller.abort(); window.clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     if (!address) return;
@@ -98,7 +111,7 @@ export function BurnTerminal() {
       setPhase("burning");
       const isReplacement = prepared.mode === "replace";
       const burnAmountWei = BigInt(prepared.burnAmount);
-      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} VOID in your wallet.`);
+      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol} in your wallet.`);
       const transactionHash = isReplacement
         ? await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "replaceCommitment", args: [prepared.commitment], chainId: targetChainId })
         : await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "burnForRename", args: [burnAmountWei, prepared.commitment], chainId: targetChainId });
@@ -154,11 +167,11 @@ export function BurnTerminal() {
     : !isConnected
       ? "Connect a wallet to enter the chamber."
       : !ownsActiveSlot && (!Number.isSafeInteger(burnAmountNumber) || burnAmountNumber < requiredBurn)
-        ? `Set a whole-number burn of at least ${formatNumber(requiredBurn)} VOID.`
+        ? `Set a whole-number burn of at least ${formatNumber(requiredBurn)} ${tokenSymbol}.`
       : !ownsActiveSlot && burnAmountNumber > maximumBurn
-        ? `This record can be at most ${formatNumber(maximumBurn)} VOID.`
+        ? `This record can be at most ${formatNumber(maximumBurn)} ${tokenSymbol}.`
       : balance !== null && balance < burnAmountNumber && !ownsActiveSlot
-        ? `You need ${formatNumber(burnAmountNumber)} VOID to submit this change.`
+        ? `You need ${formatNumber(burnAmountNumber)} ${tokenSymbol} to submit this change.`
       : !accepted
         ? "Acknowledge the irreversible burn first."
         : null;
@@ -170,10 +183,10 @@ export function BurnTerminal() {
           <span className="eyebrow">PRIVATE PROPOSAL CHANNEL</span>
           <h2>AUTHOR THE NEXT SKIN</h2>
         </div>
-        <span className="terminal-code">NEXT BURN / {formatNumber(requiredBurn)}</span>
+        <span className="terminal-code">NEXT BURN / {formatNumber(requiredBurn)} {tokenSymbol}</span>
       </div>
       <div className="wallet-access">
-        <div><span>YOUR VOID BALANCE</span><strong>{isConnected ? balance === null ? "LOADING…" : formatNumber(balance) : "CONNECT TO VIEW"}</strong><small>{ownsActiveSlot ? "YOU CONTROL THE ACTIVE PROPOSAL" : `${formatNumber(requiredBurn)} VOID REQUIRED`}</small></div>
+        <div><span>YOUR {tokenSymbol} BALANCE</span><strong>{isConnected ? balance === null ? "LOADING…" : formatNumber(balance) : "CONNECT TO VIEW"}</strong><small>{ownsActiveSlot ? "YOU CONTROL THE ACTIVE PROPOSAL" : `${formatNumber(requiredBurn)} ${tokenSymbol} REQUIRED`}</small></div>
         <WalletButton />
       </div>
       <div className="field-grid">
@@ -195,7 +208,7 @@ export function BurnTerminal() {
         <label>
           <span>YOUR RECORD BURN</span>
           <input name="burnAmountDisplay" type="number" min={requiredBurn} max={maximumBurn} step="1" inputMode="numeric" value={burnAmount} onChange={(event) => setBurnAmount(event.target.value)} disabled={ownsActiveSlot} required={!ownsActiveSlot} />
-          <small>{formatNumber(requiredBurn)}–{formatNumber(maximumBurn)} VOID. Higher burns set a harder record.</small>
+          <small>{formatNumber(requiredBurn)}–{formatNumber(maximumBurn)} {tokenSymbol}. Higher burns set a harder record.</small>
         </label>
         <label>
           <span>NEW IMAGE</span>
@@ -210,7 +223,7 @@ export function BurnTerminal() {
       <div className={`terminal-status phase-${phase}`} aria-live="polite"><span />{message}</div>
       {authorization ? <button className="primary-action" type="button" onClick={authorizeApprovedMetadata} disabled={phase === "burning" || phase === "confirming"}>AUTHORIZE APPROVED {authorization.proposedName} / ${authorization.proposedSymbol}</button> : null}
       <button className="primary-action" type="submit" disabled={Boolean(disabledReason) || phase === "burning" || phase === "confirming" || phase === "preparing" || phase === "signing"} title={disabledReason ?? undefined}>
-        {ownsActiveSlot ? "SUBMIT REPLACEMENT" : `BURN ${Number.isFinite(burnAmountNumber) ? formatNumber(burnAmountNumber) : "—"} VOID + SUBMIT`}
+        {ownsActiveSlot ? "SUBMIT REPLACEMENT" : `BURN ${Number.isFinite(burnAmountNumber) ? formatNumber(burnAmountNumber) : "—"} ${tokenSymbol} + SUBMIT`}
       </button>
     </form>
   );

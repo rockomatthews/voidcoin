@@ -1,8 +1,8 @@
 import { formatUnits } from "viem";
 import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
+import { imageFromTokenURI } from "@/lib/token-metadata";
 
-interface TokenMetadata { image?: string }
 interface ArchiveIdentity {
   burnId: string;
   name: string;
@@ -13,25 +13,6 @@ interface ArchiveIdentity {
   burnTransactionHash: `0x${string}` | null;
   burnAmount: number;
   timestamp: number | null;
-}
-
-function ipfsUrl(uri: string) {
-  if (!uri.startsWith("ipfs://")) return null;
-  const cid = uri.slice(7).replace(/^ipfs\//, "");
-  return `${process.env.PINATA_GATEWAY ?? "https://gateway.pinata.cloud/ipfs"}/${cid}`;
-}
-
-async function imageFromMetadata(uri: string) {
-  const url = ipfsUrl(uri);
-  if (!url) return null;
-  try {
-    const response = await fetch(url, { next: { revalidate: 300 }, signal: AbortSignal.timeout(5_000) });
-    if (!response.ok) return null;
-    const metadata = await response.json() as TokenMetadata;
-    return metadata.image ? ipfsUrl(metadata.image) : null;
-  } catch {
-    return null;
-  }
 }
 
 export async function GET() {
@@ -66,7 +47,7 @@ export async function GET() {
         burnId,
         name: log.args.name ?? "",
         symbol: log.args.symbol ?? "",
-        image: log.args.metadataURI ? await imageFromMetadata(log.args.metadataURI) : null,
+        image: log.args.metadataURI ? await imageFromTokenURI(log.args.metadataURI) : null,
         burner: log.args.burner ?? "",
         transactionHash: log.transactionHash,
         burnTransactionHash: burn?.transactionHash ?? null,
