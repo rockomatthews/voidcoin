@@ -7,7 +7,7 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Application lint, unit tests, and production build pass.
 - Foundry unit, fuzz, invariant, and static-analysis checks pass.
 - `npm run contracts:security` completes with zero Slither findings and no parser errors.
-- Verify the contract-enforced floor is 1M initially and the current record plus 250K thereafter. Confirm a challenger may burn more than the floor, the chosen amount becomes the record, and amounts below the live floor revert before burning.
+- Verify the contract-enforced floor is 1M initially and the current record plus 250K thereafter. Confirm a challenger may burn up to 2M above the live floor, the chosen amount becomes the record, and amounts outside that range revert before burning.
 - Upload privacy, authorization, duplicate event, and webhook retry tests pass.
 - Desktop, mobile, keyboard, screen-reader, and reduced-motion review is complete.
 
@@ -36,12 +36,13 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 
 ## 5. Buyer-funded continuous bonding curve
 
-- Verify the frozen 2 ETH virtual reserve and 25 ETH buyer-funded graduation threshold. The migration path is fixed to Base Uniswap v3, a 1% pool fee, full-range ticks, the Safe as bounded-dust recipient, and the repository's immutable 12-month position locker. There is no auction duration or end price.
+- Verify the frozen 100 ETH virtual reserve, 1 ETH maximum purchase, and 25 ETH buyer-funded graduation threshold. The migration path is fixed to Base Uniswap v3, a 1% pool fee, a one-time 0.1% reserve seed, full-range ticks, the Safe as bounded-dust recipient, and the repository's immutable 12-month position locker. There is no auction duration or end price.
 - Confirm the continuous curve receives exactly 980,000,000 VOID and the graduation-triggered 12-month treasury receives exactly 20,000,000 VOID.
 - Confirm the immutable curve fee is exactly 1% on buys and 1% on sells, with fees retained in accounted reserves.
-- Buyers—not the creator—supply every real ETH deposit. Confirm the reviewed adapter places at least 99.9% of ETH and remaining VOID into the intended Uniswap position.
+- Buyers—not the creator—supply every real ETH deposit. Confirm unused seed assets return to the curve and the reviewed adapter places at least 99.9% of remaining ETH and VOID into the intended final Uniswap position.
 - Verify the LP NFT is owned by `VOIDPositionLocker`, its unlock timestamp is exactly 365 days after graduation, and its immutable beneficiary is the production Safe.
-- Exercise buy, sell, forced-asset isolation, threshold eligibility, continued trading after threshold, failed migration rollback, and successful venue migration on a local Base Mainnet fork before publishing the production deployment.
+- Exercise buy, sell, the 1 ETH cap, forced-asset isolation, threshold latching, continued trading after threshold, failed migration rollback, hostile pre-initialization, capped seeding, and successful venue migration on a local Base Mainnet fork before publishing the production deployment.
+- Resolve or explicitly accept the modeled approximately 80% curve-to-Uniswap marginal-price discontinuity created by the approved 100 ETH virtual reserve / 25 ETH real threshold before Mainnet broadcast.
 
 ## 6. Production services
 

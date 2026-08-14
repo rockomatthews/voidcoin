@@ -1,17 +1,17 @@
 import { formatUnits } from "viem";
 import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
-import { INITIAL_BURN_REQUIREMENT, INITIAL_TOKEN_NAME, INITIAL_TOKEN_SYMBOL, ORIGINAL_SUPPLY } from "@/lib/site";
+import { INITIAL_BURN_REQUIREMENT, INITIAL_TOKEN_NAME, INITIAL_TOKEN_SYMBOL, MAX_STRATEGIC_PREMIUM, ORIGINAL_SUPPLY } from "@/lib/site";
 
 export async function GET() {
   const address = configuredContractAddress();
   if (!address) {
-    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
+    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
   }
 
   try {
     const client = getPublicClient();
-    const [name, symbol, supply, burned, paused, slot, uri, record, nextRequirement, recordHolder] = await Promise.all([
+    const [name, symbol, supply, burned, paused, slot, uri, record, nextRequirement, maximumBurn, recordHolder] = await Promise.all([
       client.readContract({ address, abi: voidCoinAbi, functionName: "name" }),
       client.readContract({ address, abi: voidCoinAbi, functionName: "symbol" }),
       client.readContract({ address, abi: voidCoinAbi, functionName: "totalSupply" }),
@@ -21,6 +21,7 @@ export async function GET() {
       client.readContract({ address, abi: voidCoinAbi, functionName: "tokenURI" }),
       client.readContract({ address, abi: voidCoinAbi, functionName: "recordBurn" }),
       client.readContract({ address, abi: voidCoinAbi, functionName: "nextBurnRequirement" }),
+      client.readContract({ address, abi: voidCoinAbi, functionName: "maximumBurnAmount" }),
       client.readContract({ address, abi: voidCoinAbi, functionName: "recordBurner" }),
     ]);
     return Response.json({
@@ -35,6 +36,7 @@ export async function GET() {
       burned: Number(formatUnits(burned, 18)),
       recordBurn: Number(formatUnits(record, 18)),
       nextBurnAmount: Number(formatUnits(nextRequirement, 18)),
+      maximumBurnAmount: Number(formatUnits(maximumBurn, 18)),
       recordBurner: recordHolder === "0x0000000000000000000000000000000000000000" ? null : recordHolder,
       renamePaused: paused,
       activeSlot: slot.burner === "0x0000000000000000000000000000000000000000" ? null : { burnId: slot.burnId.toString(), burner: slot.burner, burnAmount: Number(formatUnits(slot.burnAmount, 18)), commitment: slot.commitment, openedAt: Number(slot.openedAt), lockedUntil: Number(slot.lockedUntil) },

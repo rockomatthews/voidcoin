@@ -12,7 +12,7 @@ Do not broadcast until all values are final and independently reviewed:
 - `BASESCAN_API_KEY` — source-verification credential.
 - A funded deployment signer selected through Foundry's encrypted keystore (`--account`) or hardware-wallet (`--ledger` / `--trezor`) flow. Never place a raw private key in Vercel or repository environment files.
 
-The deployment script is Base Mainnet-only. It hardcodes the owner-approved 2 ETH virtual reserve and 25 ETH buyer-funded graduation threshold, pins the official Uniswap v3 NonfungiblePositionManager at `0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1`, deploys the migration adapter and immutable 12-month position locker, refuses an EOA Safe, and refuses empty genesis metadata.
+The deployment script is Base Mainnet-only. It hardcodes the owner-approved 100 ETH virtual reserve, 1 ETH maximum purchase, one-time 0.1% pool seed, and 25 ETH buyer-funded graduation threshold; pins the official Uniswap v3 NonfungiblePositionManager at `0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1`; deploys the migration adapter and immutable 12-month position locker; refuses an EOA Safe; and refuses empty genesis metadata.
 
 ## Rehearse without broadcasting
 
@@ -27,7 +27,7 @@ forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
   -vvvv
 ```
 
-Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% buy/sell fee, 2 ETH virtual reserve, 25 ETH buyer-funded threshold, graduation-gated treasury vesting, migration adapter, 12-month LP locker, and paused rename state.
+Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% buy/sell fee, 100 ETH virtual reserve, 1 ETH purchase cap, 25 ETH buyer-funded threshold, capped pool seed, graduation-gated treasury vesting, migration adapter, 12-month LP locker, and paused rename state.
 
 ## Broadcast and verify
 

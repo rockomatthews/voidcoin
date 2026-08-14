@@ -26,14 +26,16 @@ describe("strategic burn validation", () => {
   const minimum = 1_250_000n * 10n ** 18n;
 
   it("accepts the live minimum and a higher strategic record", () => {
-    expect(parseStrategicBurn("1250000", minimum)).toBe(minimum);
-    expect(parseStrategicBurn("2000000", minimum)).toBe(2_000_000n * 10n ** 18n);
+    const maximum = 3_250_000n * 10n ** 18n;
+    expect(parseStrategicBurn("1250000", minimum, maximum)).toBe(minimum);
+    expect(parseStrategicBurn("2000000", minimum, maximum)).toBe(2_000_000n * 10n ** 18n);
   });
 
   it("rejects stale, fractional, malformed, and impossible amounts", () => {
-    expect(() => parseStrategicBurn("1000000", minimum)).toThrow("at least 1250000");
-    expect(() => parseStrategicBurn("1250000.5", minimum)).toThrow("whole number");
-    expect(() => parseStrategicBurn("2e6", minimum)).toThrow("whole number");
-    expect(() => parseStrategicBurn("1000000001", minimum)).toThrow("original VOID supply");
+    const maximum = 3_250_000n * 10n ** 18n;
+    expect(() => parseStrategicBurn("1000000", minimum, maximum)).toThrow("at least 1250000");
+    expect(() => parseStrategicBurn("1250000.5", minimum, maximum)).toThrow("whole number");
+    expect(() => parseStrategicBurn("2e6", minimum, maximum)).toThrow("whole number");
+    expect(() => parseStrategicBurn("3250001", minimum, maximum)).toThrow("cannot exceed 3250000");
   });
 });

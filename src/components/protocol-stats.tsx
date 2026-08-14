@@ -114,7 +114,7 @@ export function ProtocolStats() {
         <div className="ritual-grid">
           <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your VOID balance.</p></article>
           <article><b>02</b><h3>Build the next identity</h3><p>Choose the next name, ticker, and image. The proposal stays private during review.</p></article>
-          <article><b>03</b><h3>Beat the burn</h3><p>The first record is at least 1,000,000 VOID. Every challenger must burn at least 250,000 VOID more—and may set a higher strategic record.</p></article>
+          <article><b>03</b><h3>Beat the burn</h3><p>The first record is at least 1,000,000 VOID. Every challenger adds at least 250,000 VOID and may add up to a 2,000,000 VOID strategic premium.</p></article>
           <article><b>04</b><h3>Change everything</h3><p>Once approved, the token image, name, ticker, header, hero, title, and archive update together.</p></article>
         </div>
       </section>

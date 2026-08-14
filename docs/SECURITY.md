@@ -6,7 +6,7 @@ The owner is intended to be a multisignature Safe. It may apply a commitment-mat
 
 Each final commitment binds `chainid`, token address, burn ID, burner, exact burn amount, proposed name, proposed symbol, cleaned image hash, exact metadata URI hash, and a random salt. The burner authorizes the final IPFS URI with `replaceCommitment` after moderation and publication; this requires no additional burn. A valid current-record burn is required for any metadata change. Burns never reverse, including when a later challenger supersedes a pending proposal.
 
-The caller cannot burn below the record threshold. `burnForRename` requires at least 1,000,000 VOID for the first record, then at least `recordBurn + 250,000 VOID`. A challenger may voluntarily burn more; that exact amount becomes the new record and is commitment-bound. A stale transaction reverts before burning when its chosen amount no longer clears the live minimum.
+The caller cannot burn outside the live record range. `burnForRename` requires at least 1,000,000 VOID for the first record, then at least `recordBurn + 250,000 VOID`, with a maximum strategic premium of 2,000,000 VOID above that floor. The exact amount becomes the new record and is commitment-bound. Stale, below-floor, and above-cap transactions revert before burning.
 
 `npm run contracts:security` is the canonical static-analysis command. It analyzes `VOIDLaunch` and its entire dependency graph with Slither, direct `solc`, and the exact 0.8.30 compiler. This avoids the unresolved inheritance references produced by the current Foundry build-info ingestion path. The command fails closed when the expected compiler or Slither is unavailable, and CI runs it on every push and pull request.
 

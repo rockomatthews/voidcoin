@@ -5,7 +5,7 @@ import { formatUnits } from "viem";
 import { useAccount, useChainId, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { WalletButton } from "@/components/wallet-button";
 import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
-import { INITIAL_BURN_REQUIREMENT, TAKEOVER_INCREMENT, formatNumber } from "@/lib/site";
+import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, formatNumber } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
 type PendingAuthorization = { id: string; wallet: string; commitment: `0x${string}`; proposedName: string; proposedSymbol: string };
@@ -23,6 +23,7 @@ export function BurnTerminal() {
   const [message, setMessage] = useState("Fill the chamber to prepare a private commitment.");
   const [accepted, setAccepted] = useState(false);
   const [requiredBurn, setRequiredBurn] = useState(INITIAL_BURN_REQUIREMENT);
+  const [maximumBurn, setMaximumBurn] = useState(INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM);
   const [burnAmount, setBurnAmount] = useState(String(INITIAL_BURN_REQUIREMENT));
   const [balanceState, setBalanceState] = useState<{ wallet: string; value: number } | null>(null);
   const [ownsActiveSlot, setOwnsActiveSlot] = useState(false);
@@ -32,9 +33,10 @@ export function BurnTerminal() {
     const controller = new AbortController();
     fetch("/api/state", { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("state unavailable")))
-      .then((state: { nextBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
+      .then((state: { nextBurnAmount?: number; maximumBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
         const nextMinimum = state.nextBurnAmount ?? INITIAL_BURN_REQUIREMENT;
         setRequiredBurn(nextMinimum);
+        setMaximumBurn(state.maximumBurnAmount ?? nextMinimum + MAX_STRATEGIC_PREMIUM);
         setBurnAmount(String(nextMinimum));
         setOwnsActiveSlot(Boolean(address && state.activeSlot?.burner.toLowerCase() === address.toLowerCase()));
       })
@@ -115,6 +117,7 @@ export function BurnTerminal() {
         const spent = Number(burnAmountWei / 10n ** 18n);
         const nextMinimum = spent + TAKEOVER_INCREMENT;
         setRequiredBurn(nextMinimum);
+        setMaximumBurn(nextMinimum + MAX_STRATEGIC_PREMIUM);
         setBurnAmount(String(nextMinimum));
         setBalanceState((current) => current === null ? null : { ...current, value: Math.max(0, current.value - spent) });
       }
@@ -152,6 +155,8 @@ export function BurnTerminal() {
       ? "Connect a wallet to enter the chamber."
       : !ownsActiveSlot && (!Number.isSafeInteger(burnAmountNumber) || burnAmountNumber < requiredBurn)
         ? `Set a whole-number burn of at least ${formatNumber(requiredBurn)} VOID.`
+      : !ownsActiveSlot && burnAmountNumber > maximumBurn
+        ? `This record can be at most ${formatNumber(maximumBurn)} VOID.`
       : balance !== null && balance < burnAmountNumber && !ownsActiveSlot
         ? `You need ${formatNumber(burnAmountNumber)} VOID to submit this change.`
       : !accepted
@@ -189,8 +194,8 @@ export function BurnTerminal() {
         </label>
         <label>
           <span>YOUR RECORD BURN</span>
-          <input name="burnAmountDisplay" type="number" min={requiredBurn} max={1_000_000_000} step="1" inputMode="numeric" value={burnAmount} onChange={(event) => setBurnAmount(event.target.value)} disabled={ownsActiveSlot} required={!ownsActiveSlot} />
-          <small>Minimum {formatNumber(requiredBurn)} VOID. You may burn more to set a harder record.</small>
+          <input name="burnAmountDisplay" type="number" min={requiredBurn} max={maximumBurn} step="1" inputMode="numeric" value={burnAmount} onChange={(event) => setBurnAmount(event.target.value)} disabled={ownsActiveSlot} required={!ownsActiveSlot} />
+          <small>{formatNumber(requiredBurn)}–{formatNumber(maximumBurn)} VOID. Higher burns set a harder record.</small>
         </label>
         <label>
           <span>NEW IMAGE</span>

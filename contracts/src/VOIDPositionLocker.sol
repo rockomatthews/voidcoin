@@ -10,41 +10,48 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 contract VOIDPositionLocker is IERC721Receiver, ReentrancyGuard {
     uint64 public constant LOCK_DURATION = 365 days;
     IERC721 public immutable positionManager;
-    address public immutable migrationAdapter;
     address public immutable beneficiary;
     mapping(uint256 tokenId => uint64 unlockAt) public unlockAt;
+    mapping(uint256 tokenId => address registrar) public registeredBy;
 
     error ZeroAddress();
     error InvalidContract();
-    error OnlyMigrationAdapter();
     error UnsupportedNFT();
     error PositionNotHeld();
     error AlreadyRegistered();
     error PositionLocked();
 
-    event PositionRegistered(uint256 indexed tokenId, uint64 unlockAt);
+    event PositionRegistered(uint256 indexed tokenId, address indexed registrar, uint64 unlockAt);
     event PositionReleased(uint256 indexed tokenId, address indexed beneficiary);
 
-    constructor(IERC721 positionManager_, address migrationAdapter_, address beneficiary_) {
-        if (address(positionManager_) == address(0) || migrationAdapter_ == address(0) || beneficiary_ == address(0)) {
+    constructor(IERC721 positionManager_, address beneficiary_) {
+        if (address(positionManager_) == address(0) || beneficiary_ == address(0)) {
             revert ZeroAddress();
         }
-        if (address(positionManager_).code.length == 0 || migrationAdapter_.code.length == 0) {
-            revert InvalidContract();
-        }
+        if (address(positionManager_).code.length == 0) revert InvalidContract();
         positionManager = positionManager_;
-        migrationAdapter = migrationAdapter_;
         beneficiary = beneficiary_;
     }
 
+    function isRegisteredPosition(uint256 tokenId, address registrar) external view returns (bool) {
+        // Zero is the explicit sentinel for an unregistered position; this is not a value-comparison authorization bug.
+        // slither-disable-next-line incorrect-equality
+        if (unlockAt[tokenId] == 0 || registeredBy[tokenId] != registrar) return false;
+        try positionManager.ownerOf(tokenId) returns (address holder) {
+            return holder == address(this);
+        } catch {
+            return false;
+        }
+    }
+
     function registerPosition(uint256 tokenId) external {
-        if (msg.sender != migrationAdapter) revert OnlyMigrationAdapter();
         if (positionManager.ownerOf(tokenId) != address(this)) revert PositionNotHeld();
         if (unlockAt[tokenId] != 0) revert AlreadyRegistered();
         // block.timestamp cannot approach uint64 overflow on any realistic EVM deployment horizon.
         uint64 releaseAt = uint64(block.timestamp + LOCK_DURATION);
         unlockAt[tokenId] = releaseAt;
-        emit PositionRegistered(tokenId, releaseAt);
+        registeredBy[tokenId] = msg.sender;
+        emit PositionRegistered(tokenId, msg.sender, releaseAt);
     }
 
     function release(uint256 tokenId) external nonReentrant {
@@ -52,7 +59,8 @@ contract VOIDPositionLocker is IERC721Receiver, ReentrancyGuard {
         if (releaseAt == 0 || block.timestamp < releaseAt) revert PositionLocked();
         if (positionManager.ownerOf(tokenId) != address(this)) revert PositionNotHeld();
         delete unlockAt[tokenId];
-        positionManager.transferFrom(address(this), beneficiary, tokenId);
+        delete registeredBy[tokenId];
+        positionManager.safeTransferFrom(address(this), beneficiary, tokenId);
         emit PositionReleased(tokenId, beneficiary);
     }
 

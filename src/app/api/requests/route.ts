@@ -49,9 +49,10 @@ export async function POST(request: Request) {
   try {
     const sanitized = await sanitizeImage(image);
     const client = getPublicClient();
-    const [nextBurnId, nextBurnRequirement, slot] = await Promise.all([
+    const [nextBurnId, nextBurnRequirement, maximumBurnAmount, slot] = await Promise.all([
       client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "nextBurnId" }),
       client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "nextBurnRequirement" }),
+      client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "maximumBurnAmount" }),
       client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "activeSlot" }),
     ]);
     const isActive = slot.burner !== "0x0000000000000000000000000000000000000000";
@@ -59,7 +60,9 @@ export async function POST(request: Request) {
 
     const burnId = isReplacement ? slot.burnId : nextBurnId;
     const requestedBurn = String(form.get("burnAmount") ?? "");
-    const burnAmount = isReplacement ? slot.burnAmount : parseStrategicBurn(requestedBurn, nextBurnRequirement);
+    const burnAmount = isReplacement
+      ? slot.burnAmount
+      : parseStrategicBurn(requestedBurn, nextBurnRequirement, maximumBurnAmount);
     const salt = `0x${randomBytes(32).toString("hex")}` as Hex;
     const commitment = createCommitment({ chainId: configuredChainId(), contractAddress, burnId, burner: wallet, burnAmount, name: parsed.data.name, symbol: parsed.data.symbol, imageHash: sanitized.hash, metadataURIHash: zeroHash, salt });
     const blob = await put(`requests/${wallet.toLowerCase()}/${burnId}.${sanitized.extension}`, sanitized.bytes, { access: "private", contentType: sanitized.contentType, addRandomSuffix: true, cacheControlMaxAge: 60 });

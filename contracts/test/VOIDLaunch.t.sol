@@ -10,7 +10,17 @@ import {VOIDTreasuryVesting} from "../src/VOIDTreasuryVesting.sol";
 
 contract MockSafe {}
 
-contract MockPositionRecipient {}
+contract MockPositionRecipient {
+    mapping(uint256 tokenId => address registrar) public registeredBy;
+
+    function registerPosition(uint256 tokenId) external {
+        registeredBy[tokenId] = msg.sender;
+    }
+
+    function isRegisteredPosition(uint256 tokenId, address registrar) external view returns (bool) {
+        return registeredBy[tokenId] == registrar;
+    }
+}
 
 contract MockMigrationTarget {
     address public migratedToken;
@@ -18,19 +28,38 @@ contract MockMigrationTarget {
     uint256 public migratedEth;
     address public positionRecipient;
     bool public shouldRevert;
+    uint256 public seededTokens;
+    uint256 public seededEth;
+    uint256 public nextPositionTokenId = 1;
 
     function setShouldRevert(bool value) external {
         shouldRevert = value;
     }
 
-    function migrate(address token, uint256 tokenAmount, address recipient) external payable returns (bytes32) {
+    function migrate(address token, uint256 tokenAmount, address recipient) external payable returns (bytes32, uint256) {
         if (shouldRevert) revert("offline");
         migratedToken = token;
         migratedTokens = tokenAmount;
         migratedEth = msg.value;
         positionRecipient = recipient;
         IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
-        return keccak256(abi.encode(token, tokenAmount, msg.value, recipient));
+        uint256 tokenId = nextPositionTokenId++;
+        MockPositionRecipient(recipient).registerPosition(tokenId);
+        return (keccak256(abi.encode(token, tokenAmount, msg.value, recipient)), tokenId);
+    }
+
+    function seed(address token, uint256 tokenAmount, address recipient)
+        external
+        payable
+        returns (bytes32, uint256, uint256, uint256)
+    {
+        if (shouldRevert) revert("offline");
+        seededTokens += tokenAmount;
+        seededEth += msg.value;
+        IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
+        uint256 tokenId = nextPositionTokenId++;
+        MockPositionRecipient(recipient).registerPosition(tokenId);
+        return (keccak256(abi.encode("seed", token, tokenAmount, msg.value, recipient)), tokenId, tokenAmount, msg.value);
     }
 }
 
@@ -48,7 +77,7 @@ contract VOIDLaunchTest is Test {
         safe = address(new MockSafe());
         positionRecipient = address(new MockPositionRecipient());
         migrationTarget = new MockMigrationTarget();
-        launch = new VOIDLaunch(safe, address(migrationTarget), positionRecipient, 1 ether, 2 ether, "ipfs://genesis");
+        launch = new VOIDLaunch(safe, address(migrationTarget), positionRecipient, 100 ether, 2 ether, "ipfs://genesis");
         token = launch.token();
         curve = launch.bondingCurve();
         vesting = launch.vestingWallet();
@@ -63,7 +92,8 @@ contract VOIDLaunchTest is Test {
         assertEq(token.owner(), safe);
         assertEq(curve.owner(), safe);
         assertEq(curve.positionRecipient(), positionRecipient);
-        assertEq(curve.virtualEthReserve(), 1 ether);
+        assertEq(curve.virtualEthReserve(), 100 ether);
+        assertEq(curve.maxBuyAmount(), 1 ether);
         assertEq(curve.graduationThreshold(), 2 ether);
         assertTrue(token.renamePaused());
     }
@@ -96,9 +126,7 @@ contract VOIDLaunchTest is Test {
     }
 
     function testTradingRemainsOpenAfterThresholdUntilSuccessfulMigration() public {
-        uint256 quote = curve.quoteBuy(2 ether);
-        vm.prank(buyer);
-        curve.buy{value: 2 ether}(quote, block.timestamp);
+        _fundToThreshold();
         assertTrue(curve.graduationReady());
 
         uint256 sellAmount = token.balanceOf(buyer) / 10;
@@ -107,12 +135,31 @@ contract VOIDLaunchTest is Test {
         uint256 ethQuote = curve.quoteSell(sellAmount);
         curve.sell(sellAmount, ethQuote, block.timestamp);
         vm.stopPrank();
+        assertTrue(curve.graduationReady(), "threshold eligibility must remain latched after a sell");
+    }
+
+    function testMigrationProposalCanBeCancelledAndExpires() public {
+        MockMigrationTarget replacement = new MockMigrationTarget();
+        vm.prank(safe);
+        curve.proposeMigrationTarget(address(replacement));
+        vm.prank(safe);
+        curve.cancelMigrationTarget();
+        assertEq(curve.pendingMigrationTarget(), address(0));
+
+        vm.prank(safe);
+        curve.proposeMigrationTarget(address(replacement));
+        vm.warp(
+            block.timestamp + curve.MIGRATION_DELAY() + curve.MIGRATION_PROPOSAL_WINDOW() + 1
+        );
+        vm.expectRevert(VOIDBondingCurve.MigrationProposalExpired.selector);
+        vm.prank(safe);
+        curve.acceptMigrationTarget();
     }
 
     function testMigrationFailureLeavesTradingOpen() public {
-        uint256 quote = curve.quoteBuy(2 ether);
-        vm.prank(buyer);
-        curve.buy{value: 2 ether}(quote, block.timestamp);
+        _fundToThreshold();
+        vm.prank(safe);
+        curve.seedMigrationPool();
         migrationTarget.setShouldRevert(true);
 
         vm.expectRevert(VOIDBondingCurve.MigrationFailed.selector);
@@ -121,7 +168,7 @@ contract VOIDLaunchTest is Test {
 
         assertFalse(curve.graduated());
         assertTrue(curve.graduationReady());
-        assertEq(curve.ethReserve(), 2 ether);
+        assertEq(curve.ethReserve() + curve.seededEthLiquidity(), 2 ether);
         uint256 sellAmount = token.balanceOf(buyer) / 10;
         vm.startPrank(buyer);
         token.approve(address(curve), sellAmount);
@@ -130,9 +177,9 @@ contract VOIDLaunchTest is Test {
     }
 
     function testSuccessfulGraduationStartsTreasuryVesting() public {
-        uint256 quote = curve.quoteBuy(2 ether);
-        vm.prank(buyer);
-        curve.buy{value: 2 ether}(quote, block.timestamp);
+        _fundToThreshold();
+        vm.prank(safe);
+        curve.seedMigrationPool();
         uint256 remainingTokens = curve.tokenReserve();
 
         vm.prank(safe);
@@ -141,7 +188,7 @@ contract VOIDLaunchTest is Test {
         assertTrue(curve.graduated());
         assertGt(curve.graduatedAt(), 0);
         assertEq(migrationTarget.migratedTokens(), remainingTokens);
-        assertEq(migrationTarget.migratedEth(), 2 ether);
+        assertEq(migrationTarget.migratedEth() + migrationTarget.seededEth(), 2 ether);
         assertEq(migrationTarget.positionRecipient(), positionRecipient);
         vm.expectRevert(VOIDTreasuryVesting.NothingToRelease.selector);
         vesting.release();
@@ -183,5 +230,55 @@ contract VOIDLaunchTest is Test {
         vm.expectRevert(VOIDCoin.RenouncingDisabled.selector);
         vm.prank(safe);
         token.renounceOwnership();
+    }
+
+    function testBuyIsLimitedToOnePercentOfVirtualReserve() public {
+        assertEq(curve.maxBuyAmount(), 1 ether);
+        assertEq(curve.quoteBuy(1 ether + 1), 0);
+        vm.expectRevert(VOIDBondingCurve.BuyTooLarge.selector);
+        vm.prank(buyer);
+        curve.buy{value: 1 ether + 1}(1, block.timestamp);
+    }
+
+    function testOneEthMaximumVictimCannotBeProfitablySandwichedBySplitBuys() public {
+        address attacker = makeAddr("attacker");
+        address victim = makeAddr("victim");
+        vm.deal(attacker, 50 ether);
+        vm.deal(victim, 1 ether);
+        uint256 attackerStart = attacker.balance;
+        uint256 attackerTokens;
+
+        for (uint256 i; i < 40; ++i) {
+            uint256 quote = curve.quoteBuy(1 ether);
+            vm.prank(attacker);
+            attackerTokens += curve.buy{value: 1 ether}(quote, block.timestamp);
+        }
+        uint256 victimQuote = curve.quoteBuy(1 ether);
+        vm.prank(victim);
+        curve.buy{value: 1 ether}(victimQuote, block.timestamp);
+
+        vm.startPrank(attacker);
+        token.approve(address(curve), attackerTokens);
+        curve.sell(attackerTokens, 1, block.timestamp);
+        vm.stopPrank();
+        assertLt(attacker.balance, attackerStart);
+    }
+
+    function testSeedPreservesRedeemabilityOfBuyerHeldFloat() public {
+        _fundToThreshold();
+        vm.prank(safe);
+        curve.seedMigrationPool();
+        uint256 buyerHeldFloat = token.LAUNCH_ALLOCATION() - curve.tokenReserve() - curve.seededTokenLiquidity();
+        assertGe(curve.maxSellable(), buyerHeldFloat);
+        assertLe(curve.seededTokenLiquidity(), token.LAUNCH_ALLOCATION() / 1_000);
+        assertLe(curve.seededEthLiquidity(), 2 ether / 1_000);
+    }
+
+    function _fundToThreshold() internal {
+        for (uint256 i; i < 2; ++i) {
+            uint256 quote = curve.quoteBuy(1 ether);
+            vm.prank(buyer);
+            curve.buy{value: 1 ether}(quote, block.timestamp);
+        }
     }
 }

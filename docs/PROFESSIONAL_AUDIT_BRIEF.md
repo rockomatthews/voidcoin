@@ -33,8 +33,8 @@ The Next.js moderation application is not part of the core Solidity audit unless
 - Non-upgradeable ERC-20 with an original supply of exactly `1,000,000,000e18`.
 - No minting after construction, transfer tax, blacklist, seizure, or transfer pause.
 - Genesis allocation: `900,000,000e18` to the buyer-funded curve and `100,000,000e18` to a 12-month `VestingWallet` benefiting the production Safe.
-- The first rename challenge burns exactly `1,000,000e18`; subsequent challenges burn exactly `2,000,000e18`, `3,000,000e18`, and onward.
-- Callers cannot choose a cheaper or larger amount. A stale expected amount must revert before any burn.
+- The first rename challenge burns at least `1,000,000e18`; subsequent floors equal the record plus `250,000e18`.
+- A challenger may choose up to `2,000,000e18` above the live floor. Below-floor, above-cap, and stale amounts must revert before any burn.
 - A new successful burn supersedes the prior pending proposal without refunding any previous burn.
 - Only the current record holder may replace the active commitment without another burn.
 - Commitments bind chain ID, token address, burn ID, burner, exact burn amount, proposed name, proposed symbol, cleaned image hash, and salt.

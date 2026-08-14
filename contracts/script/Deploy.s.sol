@@ -12,7 +12,7 @@ import {VOIDPositionLocker} from "../src/VOIDPositionLocker.sol";
 
 contract DeployVOIDCoin is Script {
     address internal constant BASE_UNISWAP_V3_POSITION_MANAGER = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
-    uint256 internal constant VIRTUAL_ETH_RESERVE = 2 ether;
+    uint256 internal constant VIRTUAL_ETH_RESERVE = 100 ether;
     uint256 internal constant GRADUATION_THRESHOLD = 25 ether;
 
     function run() external returns (VOIDCoin token, VOIDTreasuryVesting vestingWallet) {
@@ -30,7 +30,7 @@ contract DeployVOIDCoin is Script {
         VOIDUniswapV3Migration migrationTarget =
             new VOIDUniswapV3Migration(IVOIDUniswapV3PositionManager(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
         VOIDPositionLocker positionLocker =
-            new VOIDPositionLocker(IERC721(BASE_UNISWAP_V3_POSITION_MANAGER), address(migrationTarget), safe);
+            new VOIDPositionLocker(IERC721(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
         VOIDLaunch launch = new VOIDLaunch(
             safe,
             address(migrationTarget),

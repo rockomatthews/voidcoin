@@ -108,9 +108,15 @@ contract MockPositionManager is IVOIDUniswapV3PositionManager {
 
     contract MockPositionRegistration {
         uint256 public tokenId;
+        address public registrar;
 
         function registerPosition(uint256 tokenId_) external {
             tokenId = tokenId_;
+            registrar = msg.sender;
+        }
+
+        function isRegisteredPosition(uint256 tokenId_, address registrar_) external view returns (bool) {
+            return tokenId == tokenId_ && registrar == registrar_;
         }
     }
 
@@ -141,7 +147,7 @@ contract MockPositionManager is IVOIDUniswapV3PositionManager {
             uint256 ethAmount = 2 ether;
             vm.startPrank(user);
             token.approve(address(adapter), tokenAmount);
-            bytes32 outcome = adapter.migrate{value: ethAmount}(address(token), tokenAmount, positionRecipient);
+            (bytes32 outcome,) = adapter.migrate{value: ethAmount}(address(token), tokenAmount, positionRecipient);
             vm.stopPrank();
 
             assertNotEq(outcome, bytes32(0));
@@ -186,7 +192,7 @@ contract MockPositionManager is IVOIDUniswapV3PositionManager {
             MockMigrationSafe safe = new MockMigrationSafe();
             VOIDUniswapV3Migration launchAdapter = new VOIDUniswapV3Migration(manager, address(safe));
             VOIDLaunch launch = new VOIDLaunch(
-                address(safe), address(launchAdapter), positionRecipient, 1 ether, 2 ether, "ipfs://genesis"
+                address(safe), address(launchAdapter), positionRecipient, 200 ether, 2 ether, "ipfs://genesis"
             );
             VOIDCoin voidToken = launch.token();
             VOIDBondingCurve curve = launch.bondingCurve();
@@ -196,6 +202,8 @@ contract MockPositionManager is IVOIDUniswapV3PositionManager {
             vm.prank(buyer);
             curve.buy{value: 2 ether}(quote, block.timestamp);
 
+            vm.prank(address(safe));
+            curve.seedMigrationPool();
             vm.prank(address(safe));
             curve.graduate();
 

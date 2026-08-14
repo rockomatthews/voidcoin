@@ -93,6 +93,17 @@ contract VOIDUniswapV3Migration is ReentrancyGuard {
         uint256 tokenDust,
         uint256 ethDust
     );
+    event PoolSeeded(
+        address indexed token,
+        address indexed pool,
+        address indexed recipient,
+        uint256 tokenId,
+        uint128 liquidity,
+        uint256 tokenUsed,
+        uint256 wethUsed,
+        uint256 tokenReturned,
+        uint256 ethReturned
+    );
 
     constructor(IVOIDUniswapV3PositionManager positionManager_, address dustRecipient_) {
         if (address(positionManager_) == address(0) || dustRecipient_ == address(0)) revert ZeroAddress();
@@ -116,7 +127,7 @@ contract VOIDUniswapV3Migration is ReentrancyGuard {
         external
         payable
         nonReentrant
-        returns (bytes32 outcomeId)
+        returns (bytes32 outcomeId, uint256)
     {
         if (token == address(0) || positionRecipient == address(0)) revert ZeroAddress();
         if (positionRecipient.code.length == 0) revert InvalidContract();
@@ -133,7 +144,7 @@ contract VOIDUniswapV3Migration is ReentrancyGuard {
         }
         weth9.deposit{value: msg.value}();
 
-        MintResult memory result = _mintPosition(launchToken, token, tokenAmount, msg.value, positionRecipient);
+        MintResult memory result = _mintPosition(launchToken, token, tokenAmount, msg.value, positionRecipient, true);
         uint256 tokenDust = tokenAmount - result.tokenUsed;
         uint256 ethDust = msg.value - result.wethUsed;
         IVOIDPositionLockRegistration(positionRecipient).registerPosition(result.tokenId);
@@ -150,6 +161,60 @@ contract VOIDUniswapV3Migration is ReentrancyGuard {
                 || weth9.balanceOf(address(this)) != wethBalanceBefore || address(this).balance != ethBalanceBefore
         ) revert UnexpectedBalance();
 
+        outcomeId = _recordPosition(token, positionRecipient, result, tokenDust, ethDust);
+        return (outcomeId, result.tokenId);
+    }
+
+    /// @notice Creates a capped first position even if a stranger initialized the pool at a hostile price.
+    /// @dev Mint minimums are intentionally zero only for this bounded seed. Every unused unit is returned to the
+    /// caller, which is expected to be the bonding curve. Full migration retains its strict 99.9% minimums.
+    function seed(address token, uint256 tokenAmount, address positionRecipient)
+        external
+        payable
+        nonReentrant
+        returns (bytes32, uint256, uint256, uint256)
+    {
+        if (token == address(0) || positionRecipient == address(0)) revert ZeroAddress();
+        if (positionRecipient.code.length == 0) revert InvalidContract();
+        if (token == address(weth9)) revert InvalidAsset();
+        if (tokenAmount == 0 || msg.value == 0) revert InvalidAmount();
+
+        IERC20 launchToken = IERC20(token);
+        uint256 tokenBalanceBefore = launchToken.balanceOf(address(this));
+        uint256 wethBalanceBefore = weth9.balanceOf(address(this));
+        uint256 ethBalanceBefore = address(this).balance - msg.value;
+        launchToken.safeTransferFrom(msg.sender, address(this), tokenAmount);
+        if (launchToken.balanceOf(address(this)) - tokenBalanceBefore != tokenAmount) {
+            revert DeflationaryTokenUnsupported();
+        }
+        weth9.deposit{value: msg.value}();
+
+        MintResult memory result = _mintPosition(launchToken, token, tokenAmount, msg.value, positionRecipient, false);
+        uint256 tokenReturned = tokenAmount - result.tokenUsed;
+        uint256 ethReturned = msg.value - result.wethUsed;
+        IVOIDPositionLockRegistration(positionRecipient).registerPosition(result.tokenId);
+        if (tokenReturned > 0) launchToken.safeTransfer(msg.sender, tokenReturned);
+        if (ethReturned > 0) {
+            weth9.withdraw(ethReturned);
+            Address.sendValue(payable(msg.sender), ethReturned);
+        }
+        if (
+            launchToken.balanceOf(address(this)) != tokenBalanceBefore
+                || weth9.balanceOf(address(this)) != wethBalanceBefore || address(this).balance != ethBalanceBefore
+        ) revert UnexpectedBalance();
+
+        bytes32 outcomeId = _recordSeed(token, positionRecipient, result, tokenReturned, ethReturned);
+        return (outcomeId, result.tokenId, result.tokenUsed, result.wethUsed);
+    }
+    // slither-disable-end reentrancy-balance
+
+    function _recordPosition(
+        address token,
+        address positionRecipient,
+        MintResult memory result,
+        uint256 tokenDust,
+        uint256 ethDust
+    ) private returns (bytes32 outcomeId) {
         outcomeId = keccak256(
             abi.encode(
                 block.chainid,
@@ -174,14 +239,47 @@ contract VOIDUniswapV3Migration is ReentrancyGuard {
             ethDust
         );
     }
-    // slither-disable-end reentrancy-balance
+
+    function _recordSeed(
+        address token,
+        address positionRecipient,
+        MintResult memory result,
+        uint256 tokenReturned,
+        uint256 ethReturned
+    ) private returns (bytes32 outcomeId) {
+        outcomeId = keccak256(
+            abi.encode(
+                block.chainid,
+                address(this),
+                result.pool,
+                result.tokenId,
+                result.liquidity,
+                result.tokenUsed,
+                result.wethUsed,
+                positionRecipient,
+                bytes32("VOID_POOL_SEED")
+            )
+        );
+        emit PoolSeeded(
+            token,
+            result.pool,
+            positionRecipient,
+            result.tokenId,
+            result.liquidity,
+            result.tokenUsed,
+            result.wethUsed,
+            tokenReturned,
+            ethReturned
+        );
+    }
 
     function _mintPosition(
         IERC20 launchToken,
         address token,
         uint256 tokenAmount,
         uint256 ethAmount,
-        address positionRecipient
+        address positionRecipient,
+        bool strictMinimums
     ) private returns (MintResult memory result) {
         bool tokenIsToken0 = token < address(weth9);
         // All fields are assigned below before the struct crosses an external-call boundary.
@@ -194,8 +292,10 @@ contract VOIDUniswapV3Migration is ReentrancyGuard {
         params.tickUpper = TICK_UPPER;
         params.amount0Desired = tokenIsToken0 ? tokenAmount : ethAmount;
         params.amount1Desired = tokenIsToken0 ? ethAmount : tokenAmount;
-        params.amount0Min = Math.mulDiv(params.amount0Desired, MINIMUM_MINT_BPS, BPS, Math.Rounding.Ceil);
-        params.amount1Min = Math.mulDiv(params.amount1Desired, MINIMUM_MINT_BPS, BPS, Math.Rounding.Ceil);
+        if (strictMinimums) {
+            params.amount0Min = Math.mulDiv(params.amount0Desired, MINIMUM_MINT_BPS, BPS, Math.Rounding.Ceil);
+            params.amount1Min = Math.mulDiv(params.amount1Desired, MINIMUM_MINT_BPS, BPS, Math.Rounding.Ceil);
+        }
         params.recipient = positionRecipient;
         params.deadline = block.timestamp;
 

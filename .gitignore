@@ -13,5 +13,6 @@ contracts/broadcast
 contracts/lib/forge-std
 .DS_Store
 *.log
+*.tsbuildinfo
 .env*
 !.env.example

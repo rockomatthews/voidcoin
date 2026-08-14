@@ -87,6 +87,21 @@ contract VOIDCoinTest is Test {
         assertEq(token.destroyedSupply(), 3_000_000 ether);
     }
 
+    function testStrategicRecordCannotJumpBeyondBoundedPremium() public {
+        _unpause();
+        uint256 maximum = token.maximumBurnAmount();
+        vm.prank(challenger);
+        token.burnForRename(maximum, keccak256("maximum"));
+        assertEq(token.recordBurn(), maximum);
+
+        vm.prank(launch);
+        token.transfer(firstBurner, 100_000_000 ether);
+        uint256 tooHigh = token.maximumBurnAmount() + 1;
+        vm.expectRevert(VOIDCoin.BurnAboveMaximum.selector);
+        vm.prank(firstBurner);
+        token.burnForRename(tooHigh, keccak256("terminal-record"));
+    }
+
     function testNewRecordSupersedesPendingProposalWithoutRefund() public {
         _unpause();
         _burn(firstBurner, keccak256("first"));
@@ -199,6 +214,20 @@ contract VOIDCoinTest is Test {
         vm.warp(block.timestamp + token.APPROVAL_LOCK_DURATION() + 1);
         _burn(challenger, keccak256("challenge"));
         assertEq(token.recordBurner(), challenger);
+    }
+
+    function testApprovalLockCanBeReacquiredAfterExpiry() public {
+        _unpause();
+        _burn(firstBurner, keccak256("first"));
+        uint256 burnId = token.activeSlot().burnId;
+        vm.prank(safe);
+        token.lockRenameSlot(burnId);
+        uint64 firstLock = token.activeSlot().lockedUntil;
+
+        vm.warp(uint256(firstLock) + 1);
+        vm.prank(safe);
+        token.lockRenameSlot(burnId);
+        assertGt(token.activeSlot().lockedUntil, firstLock);
     }
 
     function testExpiredSlotCannotBeChangedOrApprovedAndCanBeClearedByAnyone() public {

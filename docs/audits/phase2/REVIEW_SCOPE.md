@@ -2,9 +2,11 @@
 
 Review branch: `codex/audit-remediation`
 
-Frozen review commit: `45d6ab4a53d3b4ac8df1db0e432e36c44248cfec`
+Previous reviewed commit: `45d6ab4a53d3b4ac8df1db0e432e36c44248cfec`
 
-The owner-approved mechanics, economics, and external-signer deployment path are frozen in that commit. Later commits may change handoff documentation only; any later Solidity, application, dependency, compiler, or deployment-script change requires a new recorded delta. Production Safe and genesis URI substitution require a final deployment-calldata delta review.
+The next frozen remediation commit is recorded after all verification passes. See `REMEDIATION.md` for the exact delta and remaining blockers.
+
+The phase-two report reviewed the previous commit. Every Solidity, application, economic, and deployment-script change after it is a new delta requiring retest. Production Safe and genesis URI substitution require a final deployment-calldata delta review.
 
 ## Solidity scope
 

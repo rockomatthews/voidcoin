@@ -8,9 +8,9 @@ import {VOIDBondingCurve} from "../src/VOIDBondingCurve.sol";
 import {VOIDCoin} from "../src/VOIDCoin.sol";
 
 contract InvariantMigrationTarget {
-    function migrate(address token, uint256 tokenAmount, address) external payable returns (bytes32) {
+    function migrate(address token, uint256 tokenAmount, address) external payable returns (bytes32, uint256) {
         IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
-        return keccak256(abi.encode(token, tokenAmount, msg.value));
+        return (keccak256(abi.encode(token, tokenAmount, msg.value)), 1);
     }
 }
 
@@ -82,5 +82,10 @@ contract VOIDBondingCurveInvariantTest is StdInvariant, Test {
 
     function invariantCurveCannotCreateTokenSupply() public view {
         assertEq(token.totalSupply(), token.ORIGINAL_SUPPLY());
+    }
+
+    function invariantEntirePublicFloatRemainsRedeemable() public view {
+        uint256 outstanding = token.LAUNCH_ALLOCATION() - curve.tokenReserve();
+        assertGe(curve.maxSellable(), outstanding);
     }
 }

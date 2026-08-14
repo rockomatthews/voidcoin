@@ -11,6 +11,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     uint256 public constant ORIGINAL_SUPPLY = 1_000_000_000 ether;
     uint256 public constant INITIAL_BURN = 1_000_000 ether;
     uint256 public constant TAKEOVER_INCREMENT = 250_000 ether;
+    uint256 public constant MAX_STRATEGIC_PREMIUM = 2_000_000 ether;
     uint256 public constant LAUNCH_ALLOCATION = 980_000_000 ether;
     uint256 public constant TREASURY_ALLOCATION = 20_000_000 ether;
     uint64 public constant SLOT_TTL = 72 hours;
@@ -39,6 +40,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
     error NotActiveBurner();
     error ZeroCommitment();
     error BurnBelowRequirement();
+    error BurnAboveMaximum();
     error InvalidName();
     error InvalidSymbol();
     error InvalidMetadataURI();
@@ -117,6 +119,10 @@ contract VOIDCoin is ERC20, Ownable2Step {
         return recordBurn == 0 ? INITIAL_BURN : recordBurn + TAKEOVER_INCREMENT;
     }
 
+    function maximumBurnAmount() public view returns (uint256) {
+        return nextBurnRequirement() + MAX_STRATEGIC_PREMIUM;
+    }
+
     function proposalCommitment(
         uint256 burnId,
         address burner,
@@ -150,6 +156,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
 
         uint256 minimumAmount = nextBurnRequirement();
         if (burnAmount < minimumAmount) revert BurnBelowRequirement();
+        if (burnAmount > minimumAmount + MAX_STRATEGIC_PREMIUM) revert BurnAboveMaximum();
         uint256 previousRecord = recordBurn;
         uint256 burnId = ++currentBurnId;
         uint64 openedAt = uint64(block.timestamp);
@@ -179,7 +186,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
         if (slot.burner == address(0)) revert NoActiveSlot();
         if (slot.burnId != burnId) revert CommitmentMismatch();
         if (block.timestamp > slot.openedAt + SLOT_TTL) revert SlotExpired();
-        if (slot.lockedUntil != 0) revert AlreadyLocked();
+        if (slot.lockedUntil != 0 && block.timestamp <= slot.lockedUntil) revert AlreadyLocked();
         uint64 lockedUntil = uint64(block.timestamp + APPROVAL_LOCK_DURATION);
         _activeSlot.lockedUntil = lockedUntil;
         emit RenameSlotLocked(burnId, lockedUntil);

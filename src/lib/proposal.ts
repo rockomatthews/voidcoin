@@ -33,13 +33,11 @@ export interface CommitmentInput {
   salt: Hex;
 }
 
-const MAX_BURN = 1_000_000_000n * 10n ** 18n;
-
-export function parseStrategicBurn(input: string, minimum: bigint): bigint {
+export function parseStrategicBurn(input: string, minimum: bigint, maximum: bigint): bigint {
   if (!/^\d+$/.test(input)) throw new Error("Burn amount must be a whole number of VOID");
   const amount = parseUnits(input, 18);
   if (amount < minimum) throw new Error(`Burn amount must be at least ${minimum / 10n ** 18n} VOID`);
-  if (amount > MAX_BURN) throw new Error("Burn amount cannot exceed the original VOID supply");
+  if (amount > maximum) throw new Error(`Burn amount cannot exceed ${maximum / 10n ** 18n} VOID for this record`);
   return amount;
 }
 

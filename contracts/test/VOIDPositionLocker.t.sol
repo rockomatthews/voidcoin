@@ -38,7 +38,7 @@ contract VOIDPositionLockerTest is Test {
         manager = new MockPositionNFT();
         unrelatedNFT = new MockPositionNFT();
         adapter = new MockLockerAdapter();
-        locker = new VOIDPositionLocker(manager, address(adapter), beneficiary);
+        locker = new VOIDPositionLocker(manager, beneficiary);
     }
 
     function testRegistersAtGraduationAndReleasesPermissionlesslyAfterTwelveMonths() public {
@@ -57,10 +57,11 @@ contract VOIDPositionLockerTest is Test {
         assertEq(locker.unlockAt(tokenId), 0);
     }
 
-    function testOnlyMigrationAdapterCanRegisterPosition() public {
+    function testRecordsTheActualRegistrarForReplacementAdapters() public {
         uint256 tokenId = manager.mint(address(locker));
-        vm.expectRevert(VOIDPositionLocker.OnlyMigrationAdapter.selector);
         locker.registerPosition(tokenId);
+        assertEq(locker.registeredBy(tokenId), address(this));
+        assertTrue(locker.isRegisteredPosition(tokenId, address(this)));
     }
 
     function testCannotRegisterPositionTheLockerDoesNotOwn() public {

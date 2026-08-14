@@ -13,7 +13,16 @@ interface IVOIDMigrationTarget {
     function migrate(address token, uint256 tokenAmount, address positionRecipient)
         external
         payable
-        returns (bytes32 outcomeId);
+        returns (bytes32 outcomeId, uint256 tokenId);
+
+    function seed(address token, uint256 tokenAmount, address positionRecipient)
+        external
+        payable
+        returns (bytes32 outcomeId, uint256 tokenId, uint256 tokenUsed, uint256 ethUsed);
+}
+
+interface IVOIDPositionCustody {
+    function isRegisteredPosition(uint256 tokenId, address registrar) external view returns (bool);
 }
 
 /// @title VOIDBondingCurve
@@ -23,7 +32,10 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
 
     uint256 public constant BPS = 10_000;
     uint256 public constant TRADE_FEE_BPS = 100;
+    uint256 public constant MAX_BUY_BPS_OF_VIRTUAL_RESERVE = 100;
+    uint256 public constant POOL_SEED_BPS = 10;
     uint256 public constant MIGRATION_DELAY = 2 days;
+    uint256 public constant MIGRATION_PROPOSAL_WINDOW = 7 days;
 
     IERC20 public immutable token;
     address public immutable reserveInitializer;
@@ -36,13 +48,18 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
     uint64 public pendingMigrationTargetAt;
     uint256 public ethReserve;
     uint256 public accountedTokenReserve;
+    uint256 public seededTokenLiquidity;
+    uint256 public seededEthLiquidity;
     uint64 public graduatedAt;
+    uint64 public thresholdReachedAt;
     bool public reservesInitialized;
+    bool public poolSeeded;
     bool public graduated;
 
     error ZeroAddress();
     error InvalidConfiguration();
     error ZeroInput();
+    error BuyTooLarge();
     error SlippageExceeded();
     error InsufficientCurveLiquidity();
     error CurveClosed();
@@ -53,14 +70,27 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
     error OnlyReserveInitializer();
     error AlreadyInitialized();
     error MigrationDelayActive();
+    error MigrationProposalExpired();
+    error NoMigrationProposal();
     error RenouncingDisabled();
     error NoExcess();
+    error PoolAlreadySeeded();
+    error PoolNotSeeded();
 
     event TokensPurchased(address indexed buyer, uint256 ethIn, uint256 fee, uint256 tokensOut);
     event TokensSold(address indexed seller, uint256 tokensIn, uint256 feeTokens, uint256 ethOut);
     event GraduationThresholdReached(uint256 ethReserve, uint256 tokenReserve);
     event MigrationTargetProposed(address indexed target, uint64 executableAt);
     event MigrationTargetChanged(address indexed previousTarget, address indexed newTarget);
+    event MigrationTargetProposalCancelled(address indexed target);
+    event MigrationPoolSeeded(
+        address indexed migrationTarget,
+        address indexed positionRecipient,
+        bytes32 indexed outcomeId,
+        uint256 positionTokenId,
+        uint256 ethAmount,
+        uint256 tokenAmount
+    );
     event Graduated(
         address indexed migrationTarget,
         address indexed positionRecipient,
@@ -94,7 +124,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
     }
 
     receive() external payable {
-        revert DirectEthDisabled();
+        if (msg.sender != migrationTarget) revert DirectEthDisabled();
     }
 
     function initializeTokenReserve() external {
@@ -111,17 +141,21 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
     }
 
     function graduationReady() public view returns (bool) {
-        return !graduated && ethReserve >= graduationThreshold;
+        return !graduated && thresholdReachedAt != 0;
     }
 
     function quoteBuy(uint256 ethIn) public view returns (uint256 tokensOut) {
-        if (ethIn == 0 || !reservesInitialized || graduated) return 0;
+        if (ethIn == 0 || ethIn > maxBuyAmount() || !reservesInitialized || graduated) return 0;
         uint256 effectiveEthIn = ethIn - Math.mulDiv(ethIn, TRADE_FEE_BPS, BPS, Math.Rounding.Ceil);
         if (effectiveEthIn == 0) return 0;
         uint256 invariant = (virtualEthReserve + ethReserve) * accountedTokenReserve;
         uint256 tokensAfter = Math.ceilDiv(invariant, virtualEthReserve + ethReserve + effectiveEthIn);
         if (tokensAfter >= accountedTokenReserve) return 0;
         tokensOut = accountedTokenReserve - tokensAfter;
+    }
+
+    function maxBuyAmount() public view returns (uint256) {
+        return Math.mulDiv(virtualEthReserve, MAX_BUY_BPS_OF_VIRTUAL_RESERVE, BPS);
     }
 
     function quoteSell(uint256 tokensIn) public view returns (uint256 ethOut) {
@@ -153,6 +187,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         if (!reservesInitialized) revert InvalidConfiguration();
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (msg.value == 0 || minimumTokensOut == 0) revert ZeroInput();
+        if (msg.value > maxBuyAmount()) revert BuyTooLarge();
 
         uint256 fee = Math.mulDiv(msg.value, TRADE_FEE_BPS, BPS, Math.Rounding.Ceil);
         uint256 effectiveEthIn = msg.value - fee;
@@ -163,12 +198,14 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         tokensOut = accountedTokenReserve - tokensAfter;
         if (tokensOut < minimumTokensOut) revert SlippageExceeded();
 
-        bool wasReady = graduationReady();
         ethReserve += msg.value;
         accountedTokenReserve = tokensAfter;
         token.safeTransfer(msg.sender, tokensOut);
         emit TokensPurchased(msg.sender, msg.value, fee, tokensOut);
-        if (!wasReady && graduationReady()) emit GraduationThresholdReached(ethReserve, accountedTokenReserve);
+        if (thresholdReachedAt == 0 && ethReserve >= graduationThreshold) {
+            thresholdReachedAt = uint64(block.timestamp);
+            emit GraduationThresholdReached(ethReserve, accountedTokenReserve);
+        }
     }
 
     function sell(uint256 tokensIn, uint256 minimumEthOut, uint256 deadline)
@@ -209,7 +246,12 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
 
     function acceptMigrationTarget() external onlyOwner {
         address nextTarget = pendingMigrationTarget;
-        if (nextTarget == address(0) || block.timestamp < pendingMigrationTargetAt) revert MigrationDelayActive();
+        if (nextTarget == address(0)) revert NoMigrationProposal();
+        if (block.timestamp < pendingMigrationTargetAt) revert MigrationDelayActive();
+        if (block.timestamp > uint256(pendingMigrationTargetAt) + MIGRATION_PROPOSAL_WINDOW) {
+            revert MigrationProposalExpired();
+        }
+        if (nextTarget.code.length == 0) revert InvalidConfiguration();
         address previous = migrationTarget;
         migrationTarget = nextTarget;
         delete pendingMigrationTarget;
@@ -217,8 +259,72 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         emit MigrationTargetChanged(previous, nextTarget);
     }
 
+    function cancelMigrationTarget() external onlyOwner {
+        address cancelled = pendingMigrationTarget;
+        if (cancelled == address(0)) revert NoMigrationProposal();
+        delete pendingMigrationTarget;
+        delete pendingMigrationTargetAt;
+        emit MigrationTargetProposalCancelled(cancelled);
+    }
+
+    /// @notice Commits at most 0.1% of current reserves to make hostile pool pricing economically movable.
+    /// @dev The adapter returns all unused assets. This does not close trading or start treasury vesting.
+    // The function is nonReentrant. Reads after the adapter call are deliberate exact-balance post-conditions, and
+    // reserve writes use the verified returned usage. View-only callbacks can observe the pre-seed accounted state but
+    // cannot authorize or mutate anything. The explicit checks account for the reported values and custody result.
+    // slither-disable-start reentrancy-balance,reentrancy-eth,reentrancy-benign,cyclomatic-complexity
+    function seedMigrationPool() external onlyOwner nonReentrant {
+        if (!graduationReady()) revert GraduationNotReady();
+        if (poolSeeded) revert PoolAlreadySeeded();
+        address target = migrationTarget;
+        if (target.code.length == 0) revert MigrationFailed();
+
+        uint256 tokenCap = Math.mulDiv(accountedTokenReserve, POOL_SEED_BPS, BPS);
+        uint256 ethCap = Math.mulDiv(ethReserve, POOL_SEED_BPS, BPS);
+        if (tokenCap == 0 || ethCap == 0) revert MigrationFailed();
+        uint256 tokenBalanceBefore = token.balanceOf(address(this));
+        uint256 ethBalanceBefore = address(this).balance;
+
+        poolSeeded = true;
+        token.forceApprove(target, tokenCap);
+        bytes32 outcomeId = bytes32(0);
+        uint256 positionTokenId = 0;
+        uint256 tokenUsed = 0;
+        uint256 ethUsed = 0;
+        try IVOIDMigrationTarget(target).seed{value: ethCap}(address(token), tokenCap, positionRecipient) returns (
+            bytes32 result, uint256 tokenId, uint256 usedTokens, uint256 usedEth
+        ) {
+            outcomeId = result;
+            positionTokenId = tokenId;
+            tokenUsed = usedTokens;
+            ethUsed = usedEth;
+        } catch {
+            revert MigrationFailed();
+        }
+        if (
+            outcomeId == bytes32(0) || positionTokenId == 0 || (tokenUsed == 0 && ethUsed == 0)
+                || tokenUsed > tokenCap || ethUsed > ethCap
+        ) revert MigrationFailed();
+        try IVOIDPositionCustody(positionRecipient).isRegisteredPosition(positionTokenId, target) returns (bool valid) {
+            if (!valid) revert MigrationFailed();
+        } catch {
+            revert MigrationFailed();
+        }
+        if (token.balanceOf(address(this)) != tokenBalanceBefore - tokenUsed) revert MigrationFailed();
+        if (address(this).balance != ethBalanceBefore - ethUsed) revert MigrationFailed();
+
+        accountedTokenReserve -= tokenUsed;
+        ethReserve -= ethUsed;
+        seededTokenLiquidity = tokenUsed;
+        seededEthLiquidity = ethUsed;
+        emit MigrationPoolSeeded(target, positionRecipient, outcomeId, positionTokenId, ethUsed, tokenUsed);
+    }
+    // slither-disable-end reentrancy-balance,reentrancy-eth,reentrancy-benign,cyclomatic-complexity
+
+    // slither-disable-start cyclomatic-complexity
     function graduate() external onlyOwner nonReentrant {
         if (!graduationReady()) revert GraduationNotReady();
+        if (!poolSeeded) revert PoolNotSeeded();
         address target = migrationTarget;
         if (target.code.length == 0) revert MigrationFailed();
         uint256 tokens = accountedTokenReserve;
@@ -233,14 +339,21 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         graduatedAt = uint64(block.timestamp);
         token.forceApprove(target, tokens);
         bytes32 outcomeId = bytes32(0);
+        uint256 positionTokenId = 0;
         try IVOIDMigrationTarget(target).migrate{value: eth}(address(token), tokens, positionRecipient) returns (
-            bytes32 result
+            bytes32 result, uint256 tokenId
         ) {
             outcomeId = result;
+            positionTokenId = tokenId;
         } catch {
             revert MigrationFailed();
         }
-        if (outcomeId == bytes32(0)) revert MigrationFailed();
+        if (outcomeId == bytes32(0) || positionTokenId == 0) revert MigrationFailed();
+        try IVOIDPositionCustody(positionRecipient).isRegisteredPosition(positionTokenId, target) returns (bool valid) {
+            if (!valid) revert MigrationFailed();
+        } catch {
+            revert MigrationFailed();
+        }
         // nonReentrant blocks state-changing callbacks; this balance delta is the adapter success post-condition.
         // slither-disable-next-line reentrancy-balance
         if (token.balanceOf(address(this)) != tokenBalanceBefore - tokens) revert MigrationFailed();
@@ -248,6 +361,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
 
         emit Graduated(target, positionRecipient, outcomeId, eth, tokens);
     }
+    // slither-disable-end cyclomatic-complexity
 
     function sweepExcess(address payable recipient) external onlyOwner nonReentrant {
         if (recipient == address(0)) revert ZeroAddress();
