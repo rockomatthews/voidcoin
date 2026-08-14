@@ -4,7 +4,9 @@ Review branch: `codex/audit-remediation`
 
 Previous reviewed commit: `45d6ab4a53d3b4ac8df1db0e432e36c44248cfec`
 
-The next frozen remediation commit is recorded after all verification passes. See `REMEDIATION.md` for the exact delta and remaining blockers.
+Frozen remediation commit: `fb5c3eb955ca01931870a8dd1f744609e8e96a6c`.
+
+See `REMEDIATION.md` for the exact delta and remaining blockers.
 
 The phase-two report reviewed the previous commit. Every Solidity, application, economic, and deployment-script change after it is a new delta requiring retest. Production Safe and genesis URI substitution require a final deployment-calldata delta review.
 
