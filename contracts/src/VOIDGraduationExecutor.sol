@@ -76,10 +76,12 @@ contract VOIDGraduationExecutor is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 private constant Q192 = 1 << 192;
+    uint256 public constant PRICE_TOLERANCE_DENOMINATOR = 1_000_000_000;
 
     IVOIDGraduationCurve public immutable curve;
     IERC20 public immutable token;
     IVOIDGraduationRouter public immutable swapRouter;
+    IVOIDGraduationWETH public immutable weth9;
 
     struct ExecutionContext {
         IVOIDGraduationWETH weth;
@@ -110,14 +112,18 @@ contract VOIDGraduationExecutor is ReentrancyGuard {
         if (address(curve_).code.length == 0 || address(swapRouter_).code.length == 0) revert InvalidContract();
         address launchToken = curve_.token();
         if (launchToken == address(0) || launchToken.code.length == 0) revert InvalidContract();
+        address initialTarget = curve_.migrationTarget();
+        if (initialTarget.code.length == 0) revert InvalidContract();
+        address wrappedNative = IVOIDGraduationAdapter(initialTarget).weth9();
+        if (wrappedNative == address(0) || wrappedNative.code.length == 0) revert InvalidContract();
         curve = curve_;
         token = IERC20(launchToken);
         swapRouter = swapRouter_;
+        weth9 = IVOIDGraduationWETH(wrappedNative);
     }
 
     receive() external payable {
-        address target = curve.migrationTarget();
-        if (msg.sender != IVOIDGraduationAdapter(target).weth9()) revert DirectEthDisabled();
+        if (msg.sender != address(weth9)) revert DirectEthDisabled();
     }
 
     /// @notice Corrects the active pool to the curve's live marginal price and graduates in the same transaction.
@@ -158,7 +164,7 @@ contract VOIDGraduationExecutor is ReentrancyGuard {
         IVOIDGraduationAdapter adapter = IVOIDGraduationAdapter(curve.migrationTarget());
         address wethAddress = adapter.weth9();
         address manager = adapter.positionManager();
-        if (wethAddress.code.length == 0 || manager.code.length == 0) revert InvalidContract();
+        if (wethAddress != address(weth9) || manager.code.length == 0) revert InvalidContract();
         address factory = IVOIDGraduationPositionManager(manager).factory();
         if (factory.code.length == 0) revert InvalidContract();
 
@@ -177,7 +183,7 @@ contract VOIDGraduationExecutor is ReentrancyGuard {
         returns (address correctionAsset)
     {
         uint160 currentPrice = _poolSqrtPrice(context.pool);
-        if (currentPrice == context.targetPrice) return address(0);
+        if (_withinPriceTolerance(currentPrice, context.targetPrice)) return address(0);
         correctionAsset = currentPrice > context.targetPrice ? context.token0 : context.token1;
 
         uint256 amountIn;
@@ -206,10 +212,11 @@ contract VOIDGraduationExecutor is ReentrancyGuard {
         if (amountOut == 0) revert ZeroSwapOutput();
         IERC20(correctionAsset).forceApprove(address(swapRouter), 0);
         uint160 correctedPrice = _poolSqrtPrice(context.pool);
-        if (correctedPrice != context.targetPrice) revert CorrectionIncomplete();
+        if (!_withinPriceTolerance(correctedPrice, context.targetPrice)) revert CorrectionIncomplete();
     }
 
     function targetSqrtPriceX96(address wethAddress) public view returns (uint160 sqrtPriceX96) {
+        if (wethAddress != address(weth9)) revert InvalidContract();
         (uint256 tokensForLiquidity, uint256 tokensToBurn) = curve.graduationLiquidityQuote();
         uint256 ethForLiquidity = curve.ethReserve();
         if (tokensForLiquidity == 0 || tokensToBurn == 0 || ethForLiquidity == 0) revert InvalidPrice();
@@ -224,5 +231,13 @@ contract VOIDGraduationExecutor is ReentrancyGuard {
         // Only the current price is relevant to bounded correction; remaining slot0 fields are intentionally ignored.
         // slither-disable-next-line unused-return
         (price,,,,,,) = IVOIDGraduationPool(pool).slot0();
+    }
+
+    /// @dev Ignores only sub-part-per-billion sqrt-price differences caused by integer flooring of the seed caps.
+    /// This is far tighter than the migration adapter's 0.1% asset-use tolerance.
+    function _withinPriceTolerance(uint160 a, uint160 b) private pure returns (bool) {
+        uint256 high = a > b ? a : b;
+        uint256 low = a > b ? b : a;
+        return high - low <= high / PRICE_TOLERANCE_DENOMINATOR;
     }
 }

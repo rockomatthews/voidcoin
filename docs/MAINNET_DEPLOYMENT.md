@@ -50,6 +50,7 @@ After broadcast:
 1. Record the launch, token, curve, vesting, migration-adapter, graduation-executor, and position-locker addresses.
 2. Confirm the Safe already owns both token and curve and the deployer has no protocol authority.
 3. Confirm the 20M creator allocation cannot release before successful graduation and the LP NFT cannot release for 365 days after graduation.
+   Record the Safe fallback-handler address and prohibit changing it during the lock unless the replacement is independently proven to return `IERC721Receiver.onERC721Received.selector` through the Safe.
 4. Set Vercel `NEXT_PUBLIC_VOIDCOIN_ADDRESS` and `NEXT_PUBLIC_VOIDCOIN_DEPLOYMENT_BLOCK`.
 5. Configure the production RPC, database, private Blob store, Pinata, Resend, Alchemy webhook, admin email, WalletConnect ID, and secrets.
 6. Keep renaming paused until moderation, event indexing, email, and Safe calldata are verified against the live address.
@@ -58,9 +59,11 @@ After broadcast:
 ## Graduation operation
 
 1. The Safe verifies the active migration target and calls `seedMigrationPool()`.
-2. Simulate `VOIDGraduationExecutor.execute(maximumTokenIn)` against the latest block while supplying conservative maximum VOID approval and ETH value from a dedicated keeper wallet. These are limits, not expected spend; unused assets and swap output return atomically.
+2. Simulate `VOIDGraduationExecutor.execute(maximumTokenIn)` against the latest block while supplying conservative maximum VOID approval and ETH value from a dedicated keeper wallet. Supply both limits so a same-block direction change cannot make the prepared call use the wrong asset. These are limits, not expected spend; the unnecessary asset is never pulled, and unused assets and swap output return atomically.
 3. Execute promptly. The executor rereads the pool and curve inside the transaction, corrects the live price to the exact current graduation ratio, and calls permissionless `graduate()`.
 4. Verify the excess-token burn, zero curve reserves, final LP NFT registration, locker ownership, 365-day unlock, and executor zero balances from events and direct reads.
 5. If correction capital is unreasonable because a hostile pool has deep outside liquidity, do not graduate. Use the Safe's delayed adapter replacement process, seed that new target, and repeat the simulation.
+
+During the 365-day LP lock, periodically repeat the Safe ERC-721 receiver staticcall used by the deployment script and alert on any fallback-handler change. The deployment check is a snapshot; Safe owners can change the handler later.
 
 No deployment has been broadcast from this repository yet.
