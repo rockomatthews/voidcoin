@@ -8,6 +8,7 @@ This records the response to the final delta retest delivered on 2026-08-17. The
 - Delivered report SHA-256: `3cd5671d4ff43aa485d52557de6d2f0d2521cf965415cda1b5735ed54f0c5802`
 - Delivered PoC SHA-256: `11b58649ab89f9c7ad17c625151949ca545ad4b9716b1acfe71969fd5452c99b`
 - Delivered Uniswap model SHA-256: `cd2a0f1fbc4ca44593c0eb538e4c57d446503f874f7dc693e54393e49350f4ff`
+- Final Low-severity hardening commit: `ca92943a93e32a11d9724f13032a4d9f4818d78b`
 
 ## Disposition
 

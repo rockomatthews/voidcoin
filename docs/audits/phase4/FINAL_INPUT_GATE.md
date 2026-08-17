@@ -1,6 +1,6 @@
 # Final production-input gate
 
-The phase-four reviewer found no remaining Critical or High issue at commit `870ba4b3eeeed7f929ba5d1018a8baf22994f8f3`. The subsequent delta is limited to Low-severity hardening, active model tests, deterministic tooling, CI RPC configuration, and operations documentation.
+The phase-four reviewer found no remaining Critical or High issue at commit `870ba4b3eeeed7f929ba5d1018a8baf22994f8f3`. Final Low-severity hardening, active model tests, deterministic tooling, CI RPC configuration, and operations documentation are frozen at `ca92943a93e32a11d9724f13032a4d9f4818d78b`.
 
 Before broadcast, freeze and independently verify:
 
