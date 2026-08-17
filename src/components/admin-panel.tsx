@@ -20,7 +20,7 @@ interface RequestRow {
 
 export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] }) {
   const [requests, setRequests] = useState(initialRequests);
-  const [output, setOutput] = useState("Select a review action. Approval publishes the image to IPFS, then prepares—but does not execute—the Safe transaction.");
+  const [output, setOutput] = useState("Choose a pending request to review its image, submission history, and Safe approval payload.");
 
   async function act(id: string, action: "request_changes" | "approve") {
     const note = action === "request_changes" ? window.prompt("Private moderation note for the burner:", "Please submit a non-discriminatory replacement.") ?? "" : undefined;
@@ -46,7 +46,7 @@ export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] 
         <Link href="/">PUBLIC SITE ↗</Link>
       </header>
       <div className="review-grid">
-        {requests.length === 0 ? <div className="empty-review">No live requests. Configure Neon and complete a Base Mainnet burn to populate this chamber.</div> : requests.map((item) => (
+        {requests.length === 0 ? <div className="empty-review">No identity requests yet. The first confirmed Base Mainnet record burn will appear here automatically.</div> : requests.map((item) => (
           <article className="review-card" key={item.id}>
             <div className="review-meta"><span>BURN / {item.burnId}</span><span>{item.status.replaceAll("_", " ")}</span></div>
             <Image className="review-image" src={`/api/admin/requests/${item.id}/image`} alt={`Private proposed artwork for ${item.proposedName}`} width={640} height={640} unoptimized />
