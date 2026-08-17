@@ -37,7 +37,6 @@ Run the full script against a local Base Mainnet fork first:
 ```bash
 anvil --fork-url "$BASE_MAINNET_RPC_URL"
 forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
-  --root contracts \
   --rpc-url http://127.0.0.1:8545 \
   --sender "$DEPLOYER_ADDRESS" \
   -vvvv
@@ -57,7 +56,6 @@ Only after that command passes, run:
 
 ```bash
 forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
-  --root contracts \
   --rpc-url base_mainnet \
   --account voidcoin-deployer \
   --broadcast \

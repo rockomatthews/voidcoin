@@ -29,7 +29,7 @@ contract DeployVOIDCoin is Script {
         );
         require(BASE_UNISWAP_V3_SWAP_ROUTER_02.code.length > 0, "Official Base Uniswap v3 router is unavailable");
         (bool acceptsPositions, bytes memory receiverResult) =
-            safe.staticcall(abi.encodeCall(IERC721Receiver.onERC721Received, (address(this), address(this), 0, "")));
+            safe.staticcall(abi.encodeCall(IERC721Receiver.onERC721Received, (safe, safe, 0, "")));
         require(
             acceptsPositions && receiverResult.length >= 32
                 && abi.decode(receiverResult, (bytes4)) == IERC721Receiver.onERC721Received.selector,
