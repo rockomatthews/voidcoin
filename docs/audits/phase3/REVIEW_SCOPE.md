@@ -6,7 +6,7 @@ Previous reviewed application commit: `93352679621e6e083c2405d4fc698784132a116c`
 
 Previous reviewed Solidity commit: `0699124bb85b10c89f121e923bf82f38aefeabba`.
 
-Phase-three remediation commit: recorded here after the implementation commit is frozen.
+Phase-three remediation commit: `870ba4b3eeeed7f929ba5d1018a8baf22994f8f3`.
 
 The phase-three report found two unresolved High-severity graduation findings. This delta changes the seed ratio, graduation authorization state machine, deployment script, live-price execution mechanism, fork regressions, CI, and operational documentation. It requires professional retest before Mainnet.
 
