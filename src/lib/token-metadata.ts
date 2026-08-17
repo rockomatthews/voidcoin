@@ -39,7 +39,7 @@ export async function imageFromTokenURI(uri: string) {
   const url = ipfsGatewayUrl(uri);
   if (!url) return null;
   try {
-    const response = await fetch(url, { next: { revalidate: 30 }, signal: AbortSignal.timeout(5_000) });
+    const response = await fetch(url, { next: { revalidate: 30 }, signal: AbortSignal.timeout(12_000) });
     if (!response.ok) return null;
     const metadata = await response.json() as TokenMetadata;
     return typeof metadata.image === "string" ? ipfsGatewayUrl(metadata.image) : null;
