@@ -1,10 +1,33 @@
 {
+  "interop": {
+    "erc1046": true
+  },
   "name": "VOIDCOIN",
   "symbol": "VOID",
-  "description": "The coin that changes its identity when a holder sets a new burn record.",
+  "decimals": 18,
+  "description": "VOIDCOIN is a Base-native token whose identity is claimed by setting the highest permanent burn record. The first takeover burns 1,000,000 VOID; each challenger must burn at least 250,000 VOID more than the current record. Approved takeovers change the token's name, ticker, and image while https://voidcoin.fun remains permanent.",
   "image": "ipfs://IMAGE_CID",
-  "interop": {
-    "type": "erc20",
-    "version": "1.0.0"
+  "images": ["ipfs://IMAGE_CID"],
+  "icons": ["ipfs://IMAGE_CID"],
+  "external_url": "https://voidcoin.fun",
+  "website": "https://voidcoin.fun",
+  "chain_id": 8453,
+  "contract_address": "0xPREDICTED_VOID_TOKEN_ADDRESS",
+  "links": [
+    { "type": "website", "label": "Website", "url": "https://voidcoin.fun" },
+    { "type": "base", "label": "Base App", "url": "https://base.app/coin/base-mainnet/0xPREDICTED_VOID_TOKEN_ADDRESS" },
+    { "type": "fomo", "label": "Fomo", "url": "https://fomo.family/tokens/8453/0xPREDICTED_VOID_TOKEN_ADDRESS" },
+    { "type": "dexscreener", "label": "DEX Screener", "url": "https://dexscreener.com/base/0xPREDICTED_VOID_TOKEN_ADDRESS" },
+    { "type": "explorer", "label": "Contract", "url": "https://basescan.org/token/0xPREDICTED_VOID_TOKEN_ADDRESS" }
+  ],
+  "properties": {
+    "network": "Base Mainnet",
+    "chainId": 8453,
+    "contractAddress": "0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "website": "https://voidcoin.fun",
+    "baseApp": "https://base.app/coin/base-mainnet/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "fomo": "https://fomo.family/tokens/8453/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "dexScreener": "https://dexscreener.com/base/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "explorer": "https://basescan.org/token/0xPREDICTED_VOID_TOKEN_ADDRESS"
   }
 }

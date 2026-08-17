@@ -4,6 +4,18 @@ export interface TokenMetadata {
   image?: string;
 }
 
+export const OFFICIAL_WEBSITE = "https://voidcoin.fun";
+
+export function officialTokenLinks(contractAddress: `0x${string}`) {
+  return {
+    website: OFFICIAL_WEBSITE,
+    baseApp: `https://base.app/coin/base-mainnet/${contractAddress}`,
+    fomo: `https://fomo.family/tokens/8453/${contractAddress}`,
+    dexScreener: `https://dexscreener.com/base/${contractAddress}`,
+    explorer: `https://basescan.org/token/${contractAddress}`,
+  } as const;
+}
+
 export interface DisplayIdentity {
   name: string;
   symbol: string;
@@ -36,12 +48,38 @@ export async function imageFromTokenURI(uri: string) {
   }
 }
 
-export function approvedTokenMetadata(name: string, symbol: string, imageURI: string) {
+export function approvedTokenMetadata(
+  name: string,
+  symbol: string,
+  imageURI: string,
+  contractAddress: `0x${string}`,
+) {
+  const links = officialTokenLinks(contractAddress);
   return {
-    interop: { type: "erc20", version: "1.0.0" },
+    interop: { erc1046: true },
     name,
     symbol,
+    decimals: 18,
     image: imageURI,
-    description: "An approved VOIDCOIN identity.",
+    images: [imageURI],
+    icons: [imageURI],
+    description: `${name} ($${symbol}) is the current approved identity of the Base-native VOIDCOIN competitive-burn protocol. The token's name, ticker, and image can change after a new record burn and moderation approval; ${OFFICIAL_WEBSITE} remains permanent.`,
+    external_url: OFFICIAL_WEBSITE,
+    website: OFFICIAL_WEBSITE,
+    chain_id: 8453,
+    contract_address: contractAddress,
+    links: [
+      { type: "website", label: "Website", url: links.website },
+      { type: "base", label: "Base App", url: links.baseApp },
+      { type: "fomo", label: "Fomo", url: links.fomo },
+      { type: "dexscreener", label: "DEX Screener", url: links.dexScreener },
+      { type: "explorer", label: "Contract", url: links.explorer },
+    ],
+    properties: {
+      network: "Base Mainnet",
+      chainId: 8453,
+      contractAddress,
+      ...links,
+    },
   } as const;
 }

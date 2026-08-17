@@ -41,6 +41,8 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Approve the 2% creator treasury beneficiary; verify vesting cannot start before successful graduation and then runs for 12 months.
 - Deploy with rename slots paused and verify source. Confirm the Safe owns the token and curve immediately and the deployer never holds protocol authority.
 - Independently verify bytecode, allocation, vesting, and zero deployer authority.
+- Record the public `DEPLOYER_ADDRESS`, predict the full deployment address set from its pending nonce, and publish genesis metadata containing the predicted token contract address and permanent `https://voidcoin.fun` website.
+- Require `npm run genesis:verify` immediately before the dry run and Mainnet broadcast. A nonce change or metadata-URI mismatch blocks deployment.
 
 ## 5. Buyer-funded continuous bonding curve
 
@@ -66,3 +68,6 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Have the Safe unpause new rename slots.
 - Announce only after the public application and canonical contract state agree.
 - Add an external Base trading link only after the live pool and token address are independently verified; the site itself never embeds a purchase form.
+- Verify BaseScan's Token Update displays `https://voidcoin.fun`, the approved description, and logo after source/address-ownership verification.
+- After a pool transaction exists, verify DexScreener discovery and its website field. Submit consistent profiles to CoinGecko, Mobula, and The Grid; do not purchase a paid listing or metadata service without a separate spending approval.
+- Verify the exact token pages at `https://base.app/coin/base-mainnet/TOKEN_ADDRESS` and `https://fomo.family/tokens/8453/TOKEN_ADDRESS`. Record evidence and escalate stale or incorrect third-party metadata to each platform with the verified BaseScan record.

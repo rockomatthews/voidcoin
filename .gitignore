@@ -7,6 +7,7 @@ node_modules
 !.env.example
 coverage
 cache
+assets/genesis/published.json
 contracts/cache
 contracts/out
 contracts/broadcast

@@ -10,11 +10,27 @@ Do not broadcast until all values are final and independently reviewed:
 - `INITIAL_TOKEN_URI` — permanent IPFS JSON for the supplied VOID logo and genesis identity.
 - `BASE_MAINNET_RPC_URL` — production Base RPC.
 - `BASESCAN_API_KEY` — source-verification credential.
+- `DEPLOYER_ADDRESS` — public address of the selected gas-paying Foundry account or hardware wallet. This is used to predict the exact token address before genesis metadata is published; never store the private key here.
 - A funded deployment signer selected through Foundry's encrypted keystore (`--account`) or hardware-wallet (`--ledger` / `--trezor`) flow. Never place a raw private key in Vercel or repository environment files.
 
 The deployment script is Base Mainnet-only. It hardcodes the owner-approved 100 ETH virtual reserve, 1 ETH maximum purchase, ratio-matched 0.1% pool seed, 25 ETH buyer-funded graduation threshold, and price-continuity burn of excess unsold inventory; pins the official Uniswap v3 NonfungiblePositionManager at `0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1` and SwapRouter02 at `0x2626664c2603336E57B271c5C0b26F421741e481`; deploys the migration adapter, atomic graduation executor, and immutable 12-month position locker; refuses an EOA or non-ERC721-receiving Safe; and refuses empty genesis metadata.
 
+## Publish address-bound genesis metadata
+
+The Base App, Fomo, DexScreener, and BaseScan links include the immutable VOID token address. Publish only after choosing the final public deployer address:
+
+```bash
+npm run genesis:predict
+npm run genesis:publish
+# Copy metadataURI from assets/genesis/published.json into INITIAL_TOKEN_URI.
+npm run genesis:verify
+```
+
+The predictor reads the deployer's pending Base nonce. Do not send any transaction from that account between publication and deployment. `genesis:verify` fails if either the nonce or `INITIAL_TOKEN_URI` changed. See `docs/TOKEN_DISCOVERY.md` for the required post-deployment Base App, Fomo, BaseScan, DexScreener, CoinGecko, Mobula, and The Grid verification work.
+
 ## Rehearse without broadcasting
+
+Run `npm run genesis:verify` immediately before this rehearsal.
 
 Run the full script against a local Base Mainnet fork first:
 
@@ -32,6 +48,12 @@ Verify the predicted addresses, 980M/20M allocation, direct Safe ownership, 1% b
 ## Broadcast and verify
 
 This is an explicit Mainnet spending gate:
+
+```bash
+npm run genesis:verify
+```
+
+Only after that command passes, run:
 
 ```bash
 forge script contracts/script/Deploy.s.sol:DeployVOIDCoin \
