@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { INITIAL_BURN_REQUIREMENT, formatNumber } from "@/lib/site";
 import { liveIdentityFromContract } from "@/lib/token-metadata";
 
@@ -12,6 +12,15 @@ interface CurrentIdentity {
 }
 
 const genesis: CurrentIdentity = { name: "VOIDCOIN", symbol: "VOID", image: "/voidcoin-logo.png" };
+const tunnelPlanes = Array.from({ length: 12 }, (_, index) => ({
+  index,
+  style: {
+    "--tunnel-angle": `${index * 8}deg`,
+    "--tunnel-delay": `${index * -0.24}s`,
+    "--tunnel-depth": `${index * -42}px`,
+    "--tunnel-inset": `${index * 1.45}%`,
+  } as CSSProperties,
+}));
 
 export function DynamicIdentityHero() {
   const [identity, setIdentity] = useState(genesis);
@@ -54,7 +63,15 @@ export function DynamicIdentityHero() {
       </nav>
 
       <section className="void-hero" id="top" aria-labelledby="void-title">
-        <div className="void-orbit"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><Image src={image} alt={`${identity.name} current token image`} width={116} height={116} priority unoptimized={remoteImage} /></div>
+        <div className="void-orbit">
+          <div className="void-tunnel-planes" aria-hidden="true">
+            {tunnelPlanes.map((plane) => <i key={plane.index} style={plane.style} />)}
+          </div>
+          <div className="void-tunnel-reticle" aria-hidden="true"><span /><span /></div>
+          <div className="void-logo-core">
+            <Image src={image} alt={`${identity.name} current token image`} width={164} height={164} preload unoptimized={remoteImage} />
+          </div>
+        </div>
         <p className="void-label">THE COIN THAT CHANGES ITS SKIN</p>
         <h1 id="void-title"><strong>{identity.name}</strong><span>${identity.symbol}</span></h1>
         <p className="void-message">The first identity change burns at least <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {identity.symbol}</b>—0.1% of the original supply. Every challenger must beat the record by at least 250,000 tokens and may add up to 2,000,000 tokens above the live floor.</p>
