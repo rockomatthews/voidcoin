@@ -208,7 +208,7 @@ export function BurnTerminal() {
         <label>
           <span>YOUR RECORD BURN</span>
           <input name="burnAmountDisplay" type="number" min={requiredBurn} max={maximumBurn} step="1" inputMode="numeric" value={burnAmount} onChange={(event) => setBurnAmount(event.target.value)} disabled={ownsActiveSlot} required={!ownsActiveSlot} />
-          <small>{formatNumber(requiredBurn)}–{formatNumber(maximumBurn)} {tokenSymbol}. Higher burns set a harder record.</small>
+          <small>Each following burn must be at least {formatNumber(TAKEOVER_INCREMENT)} {tokenSymbol} above the last record. You may add up to {formatNumber(MAX_STRATEGIC_PREMIUM)} extra.</small>
         </label>
         <label>
           <span>NEW IMAGE</span>
