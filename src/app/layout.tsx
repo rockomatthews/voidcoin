@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
       // A temporary RPC or IPFS failure must not prevent the permanent website shell from rendering.
     }
   }
-  const title = `${name} ($${symbol}) — The coin that changes its skin`;
+  const title = `${name} ($${symbol}) — Try to control the coin that transforms`;
   const description = "A Base-native token whose identity belongs to the wallet that sets the highest permanent burn record and passes community-safety review.";
   return {
     metadataBase: new URL(getSiteUrl()),

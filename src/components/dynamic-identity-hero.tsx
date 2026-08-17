@@ -45,7 +45,7 @@ export function DynamicIdentityHero() {
   }, []);
 
   useEffect(() => {
-    document.title = `${identity.name} ($${identity.symbol}) — The coin that changes its skin`;
+    document.title = `${identity.name} ($${identity.symbol}) — Try to control the coin that transforms`;
     const icon = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
     if (icon) icon.href = identity.image ?? "/voidcoin-logo.png";
   }, [identity]);
@@ -73,7 +73,7 @@ export function DynamicIdentityHero() {
             <Image src={image} alt={`${identity.name} current token image`} width={164} height={164} preload unoptimized={remoteImage} />
           </div>
         </div>
-        <p className="void-label">THE COIN THAT CHANGES ITS SKIN</p>
+        <p className="void-label">TRY TO CONTROL THE COIN THAT TRANSFORMS</p>
         <h1 id="void-title"><strong>{identity.name}</strong><span>${identity.symbol}</span></h1>
         <p className="void-message">The first identity change burns at least <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {identity.symbol}</b>—0.1% of the original supply. Every challenger must beat the record by at least 250,000 tokens and may add up to 2,000,000 tokens above the live floor.</p>
         <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} {identity.symbol}</strong></div>
