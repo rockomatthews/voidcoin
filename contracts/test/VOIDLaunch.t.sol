@@ -196,7 +196,7 @@ contract VOIDLaunchTest is Test {
             Math.mulDiv(curve.ethReserve(), reserveTokens, curve.virtualEthReserve() + curve.ethReserve())
         );
 
-        vm.prank(safe);
+        vm.prank(makeAddr("graduation-keeper"));
         curve.graduate();
 
         assertTrue(curve.graduated());
@@ -287,12 +287,52 @@ contract VOIDLaunchTest is Test {
 
     function testSeedPreservesRedeemabilityOfBuyerHeldFloat() public {
         _fundToThreshold();
+        (uint256 tokensForLiquidity,) = curve.graduationLiquidityQuote();
+        uint256 expectedTokenSeed = Math.mulDiv(tokensForLiquidity, curve.POOL_SEED_BPS(), curve.BPS());
+        uint256 expectedEthSeed = Math.mulDiv(curve.ethReserve(), curve.POOL_SEED_BPS(), curve.BPS());
         vm.prank(safe);
         curve.seedMigrationPool();
         uint256 buyerHeldFloat = token.LAUNCH_ALLOCATION() - curve.tokenReserve() - curve.seededTokenLiquidity();
         assertGe(curve.maxSellable(), buyerHeldFloat);
-        assertLe(curve.seededTokenLiquidity(), token.LAUNCH_ALLOCATION() / 1_000);
-        assertLe(curve.seededEthLiquidity(), 2 ether / 1_000);
+        assertEq(curve.seededTokenLiquidity(), expectedTokenSeed);
+        assertEq(curve.seededEthLiquidity(), expectedEthSeed);
+        assertEq(curve.seededMigrationTarget(), address(migrationTarget));
+    }
+
+    function testGraduationRequiresSafeSeedButExecutionIsPermissionless() public {
+        _fundToThreshold();
+        vm.expectRevert(VOIDBondingCurve.PoolNotSeeded.selector);
+        curve.graduate();
+
+        vm.prank(safe);
+        curve.seedMigrationPool();
+        vm.prank(makeAddr("keeper"));
+        curve.graduate();
+        assertTrue(curve.graduated());
+    }
+
+    function testPendingOrAcceptedMigrationTargetCannotReuseOldSeed() public {
+        _fundToThreshold();
+        vm.prank(safe);
+        curve.seedMigrationPool();
+
+        MockMigrationTarget replacement = new MockMigrationTarget();
+        vm.prank(safe);
+        curve.proposeMigrationTarget(address(replacement));
+        vm.expectRevert(VOIDBondingCurve.MigrationChangePending.selector);
+        curve.graduate();
+
+        vm.warp(block.timestamp + curve.MIGRATION_DELAY());
+        vm.prank(safe);
+        curve.acceptMigrationTarget();
+        vm.expectRevert(VOIDBondingCurve.PoolNotSeeded.selector);
+        curve.graduate();
+
+        vm.prank(safe);
+        curve.seedMigrationPool();
+        assertEq(curve.seededMigrationTarget(), address(replacement));
+        curve.graduate();
+        assertTrue(curve.graduated());
     }
 
     function _fundToThreshold() internal {

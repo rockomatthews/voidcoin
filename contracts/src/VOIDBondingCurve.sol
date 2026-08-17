@@ -54,6 +54,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
     uint256 public accountedTokenReserve;
     uint256 public seededTokenLiquidity;
     uint256 public seededEthLiquidity;
+    address public seededMigrationTarget;
     uint64 public graduatedAt;
     uint64 public thresholdReachedAt;
     bool public reservesInitialized;
@@ -80,6 +81,7 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
     error NoExcess();
     error PoolAlreadySeeded();
     error PoolNotSeeded();
+    error MigrationChangePending();
 
     event TokensPurchased(address indexed buyer, uint256 ethIn, uint256 fee, uint256 tokensOut);
     event TokensSold(address indexed seller, uint256 tokensIn, uint256 feeTokens, uint256 ethOut);
@@ -187,6 +189,8 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
     /// @notice Largest gross token input the accounted ETH reserve can currently redeem.
     /// @dev This is conservative because integer rounding always favors the pool.
     function maxSellable() public view returns (uint256 tokensIn) {
+        // Exact zero is the intentional no-redeemable-liquidity boundary.
+        // slither-disable-next-line incorrect-equality
         if (!reservesInitialized || graduated || ethReserve == 0) return 0;
         uint256 invariant = (virtualEthReserve + ethReserve) * accountedTokenReserve;
         uint256 maximumPricedReserve = invariant / virtualEthReserve;
@@ -280,19 +284,21 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         emit MigrationTargetProposalCancelled(cancelled);
     }
 
-    /// @notice Commits at most 0.1% of current reserves to make hostile pool pricing economically movable.
+    /// @notice Commits at most 0.1% of graduation liquidity to make hostile pool pricing economically movable.
     /// @dev The adapter returns all unused assets. This does not close trading or start treasury vesting.
     // The function is nonReentrant. Reads after the adapter call are deliberate exact-balance post-conditions, and
     // reserve writes use the verified returned usage. View-only callbacks can observe the pre-seed accounted state but
     // cannot authorize or mutate anything. The explicit checks account for the reported values and custody result.
-    // slither-disable-start reentrancy-balance,reentrancy-eth,reentrancy-benign,cyclomatic-complexity
+    // Exact zero values below are intentional invalid adapter/result boundaries.
+    // slither-disable-start reentrancy-balance,reentrancy-eth,reentrancy-benign,cyclomatic-complexity,incorrect-equality
     function seedMigrationPool() external onlyOwner nonReentrant {
         if (!graduationReady()) revert GraduationNotReady();
-        if (poolSeeded) revert PoolAlreadySeeded();
         address target = migrationTarget;
+        if (poolSeeded && seededMigrationTarget == target) revert PoolAlreadySeeded();
         if (target.code.length == 0) revert MigrationFailed();
 
-        uint256 tokenCap = Math.mulDiv(accountedTokenReserve, POOL_SEED_BPS, BPS);
+        (uint256 tokensForLiquidity,) = graduationLiquidityQuote();
+        uint256 tokenCap = Math.mulDiv(tokensForLiquidity, POOL_SEED_BPS, BPS);
         uint256 ethCap = Math.mulDiv(ethReserve, POOL_SEED_BPS, BPS);
         if (tokenCap == 0 || ethCap == 0) revert MigrationFailed();
         uint256 tokenBalanceBefore = token.balanceOf(address(this));
@@ -330,16 +336,21 @@ contract VOIDBondingCurve is Ownable2Step, ReentrancyGuard {
         ethReserve -= ethUsed;
         seededTokenLiquidity = tokenUsed;
         seededEthLiquidity = ethUsed;
+        seededMigrationTarget = target;
         emit MigrationPoolSeeded(target, positionRecipient, outcomeId, positionTokenId, ethUsed, tokenUsed);
     }
 
-    // slither-disable-end reentrancy-balance,reentrancy-eth,reentrancy-benign,cyclomatic-complexity
+    // slither-disable-end reentrancy-balance,reentrancy-eth,reentrancy-benign,cyclomatic-complexity,incorrect-equality
 
     // slither-disable-start cyclomatic-complexity
-    function graduate() external onlyOwner nonReentrant {
+    /// @notice Completes migration after the Safe has explicitly seeded the active target.
+    /// @dev Permissionless execution lets a caller atomically correct the live pool price and graduate without stale
+    /// Safe calldata. The Safe retains the gate because only it can seed or propose a different migration target.
+    function graduate() external nonReentrant {
         if (!graduationReady()) revert GraduationNotReady();
-        if (!poolSeeded) revert PoolNotSeeded();
+        if (pendingMigrationTarget != address(0)) revert MigrationChangePending();
         address target = migrationTarget;
+        if (!poolSeeded || seededMigrationTarget != target) revert PoolNotSeeded();
         if (target.code.length == 0) revert MigrationFailed();
         uint256 reserveTokens = accountedTokenReserve;
         uint256 eth = ethReserve;

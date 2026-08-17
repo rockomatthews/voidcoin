@@ -12,6 +12,7 @@ import {VOIDPositionLocker} from "../src/VOIDPositionLocker.sol";
 import {VOIDLaunch} from "../src/VOIDLaunch.sol";
 import {VOIDBondingCurve} from "../src/VOIDBondingCurve.sol";
 import {VOIDCoin} from "../src/VOIDCoin.sol";
+import {VOIDGraduationExecutor, IVOIDGraduationCurve, IVOIDGraduationRouter} from "../src/VOIDGraduationExecutor.sol";
 
 interface IVOIDPositionOwner {
     function ownerOf(uint256 tokenId) external view returns (address);
@@ -137,28 +138,8 @@ contract VOIDUniswapV3MigrationForkTest is Test {
             curve.buy{value: 1 ether}(quote, block.timestamp);
         }
         uint256 supplyBefore = token.totalSupply();
-        (uint256 preSeedLiquidityTokens,) = curve.graduationLiquidityQuote();
-        address weth = manager.WETH9();
-        (address token0, address token1) = address(token) < weth ? (address(token), weth) : (weth, address(token));
-        uint160 hostileSqrtPriceX96 = _sqrtPrice(
-            token0 == address(token) ? preSeedLiquidityTokens : curve.ethReserve(),
-            token1 == address(token) ? preSeedLiquidityTokens : curve.ethReserve()
-        ) * 2;
-        manager.createAndInitializePoolIfNecessary(token0, token1, adapter.POOL_FEE(), hostileSqrtPriceX96);
-
         curve.seedMigrationPool();
-        (uint256 liquidityTokens, uint256 tokensToBurn) = curve.graduationLiquidityQuote();
-        RecoveryContext memory context = RecoveryContext({
-            token: IERC20(address(token)),
-            adapter: adapter,
-            locker: locker,
-            weth: weth,
-            token0: token0,
-            token1: token1,
-            tokenAmount: liquidityTokens,
-            ethAmount: curve.ethReserve()
-        });
-        _arbitrageToFairPrice(context, liquidityTokens, curve.ethReserve());
+        (, uint256 tokensToBurn) = curve.graduationLiquidityQuote();
         curve.graduate();
 
         assertTrue(curve.graduated());
@@ -167,6 +148,69 @@ contract VOIDUniswapV3MigrationForkTest is Test {
         assertEq(token.balanceOf(address(launch)), 0);
         assertEq(curve.tokenReserve(), 0);
         assertEq(curve.ethReserve(), 0);
+    }
+
+    function testBaseMainnetAtomicExecutorRecoversPostSeedCurveBuy() public {
+        if (block.chainid != 8453) vm.skip(true);
+
+        IVOIDUniswapV3PositionManager manager = IVOIDUniswapV3PositionManager(POSITION_MANAGER);
+        VOIDUniswapV3Migration adapter = new VOIDUniswapV3Migration(manager, address(this));
+        VOIDPositionLocker locker = new VOIDPositionLocker(IERC721(POSITION_MANAGER), address(this));
+        VOIDLaunch launch =
+            new VOIDLaunch(address(this), address(adapter), address(locker), 100 ether, 25 ether, "ipfs://fork");
+        VOIDCoin token = launch.token();
+        VOIDBondingCurve curve = launch.bondingCurve();
+        VOIDGraduationExecutor executor =
+            new VOIDGraduationExecutor(IVOIDGraduationCurve(address(curve)), IVOIDGraduationRouter(SWAP_ROUTER_02));
+        vm.deal(address(this), 100 ether);
+
+        for (uint256 i; i < 25; ++i) {
+            curve.buy{value: 1 ether}(curve.quoteBuy(1 ether), block.timestamp);
+        }
+        curve.seedMigrationPool();
+        curve.buy{value: 0.25 ether}(curve.quoteBuy(0.25 ether), block.timestamp);
+        token.approve(address(executor), 100_000_000 ether);
+
+        executor.execute{value: 10 ether}(100_000_000 ether);
+
+        assertTrue(curve.graduated());
+        assertEq(token.balanceOf(address(executor)), 0);
+        assertEq(address(executor).balance, 0);
+    }
+
+    function testBaseMainnetAtomicExecutorRecoversHostilePreInitializedProductionPool() public {
+        if (block.chainid != 8453) vm.skip(true);
+
+        IVOIDUniswapV3PositionManager manager = IVOIDUniswapV3PositionManager(POSITION_MANAGER);
+        VOIDUniswapV3Migration adapter = new VOIDUniswapV3Migration(manager, address(this));
+        VOIDPositionLocker locker = new VOIDPositionLocker(IERC721(POSITION_MANAGER), address(this));
+        VOIDLaunch launch =
+            new VOIDLaunch(address(this), address(adapter), address(locker), 100 ether, 25 ether, "ipfs://fork");
+        VOIDCoin token = launch.token();
+        VOIDBondingCurve curve = launch.bondingCurve();
+        VOIDGraduationExecutor executor =
+            new VOIDGraduationExecutor(IVOIDGraduationCurve(address(curve)), IVOIDGraduationRouter(SWAP_ROUTER_02));
+        vm.deal(address(this), 100 ether);
+
+        for (uint256 i; i < 25; ++i) {
+            curve.buy{value: 1 ether}(curve.quoteBuy(1 ether), block.timestamp);
+        }
+        (uint256 liquidityTokens,) = curve.graduationLiquidityQuote();
+        address weth = manager.WETH9();
+        (address token0, address token1) = address(token) < weth ? (address(token), weth) : (weth, address(token));
+        uint160 hostilePrice = _sqrtPrice(
+            token0 == address(token) ? liquidityTokens : curve.ethReserve(),
+            token1 == address(token) ? liquidityTokens : curve.ethReserve()
+        ) * 2;
+        manager.createAndInitializePoolIfNecessary(token0, token1, adapter.POOL_FEE(), hostilePrice);
+
+        curve.seedMigrationPool();
+        token.approve(address(executor), 100_000_000 ether);
+        executor.execute{value: 10 ether}(100_000_000 ether);
+
+        assertTrue(curve.graduated());
+        assertEq(token.balanceOf(address(executor)), 0);
+        assertEq(address(executor).balance, 0);
     }
 
     function _seedArbitrageAndMigrate(RecoveryContext memory context) private {

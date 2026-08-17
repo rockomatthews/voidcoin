@@ -27,7 +27,11 @@ security_tmp_dir="$(mktemp -d)"
 security_index=0
 trap 'rm -f "$security_tmp_dir"/*.json; rmdir "$security_tmp_dir"' EXIT
 
-for security_target in contracts/src/VOIDLaunch.sol contracts/src/VOIDUniswapV3Migration.sol contracts/src/VOIDPositionLocker.sol; do
+for security_target in \
+  contracts/src/VOIDLaunch.sol \
+  contracts/src/VOIDUniswapV3Migration.sol \
+  contracts/src/VOIDGraduationExecutor.sol \
+  contracts/src/VOIDPositionLocker.sol; do
   security_index=$((security_index + 1))
   security_report="$security_tmp_dir/slither-$security_index.json"
   if ! slither "$security_target" \

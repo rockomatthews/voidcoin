@@ -39,4 +39,8 @@ jobs:
       - run: solc-select use 0.8.30
       - run: forge fmt --check
       - run: forge test
+      - name: Base Mainnet fork graduation regressions
+        run: forge test --fork-url "$BASE_MAINNET_RPC_URL" --match-contract VOIDUniswapV3MigrationForkTest -vv
+        env:
+          BASE_MAINNET_RPC_URL: ${{ secrets.BASE_MAINNET_RPC_URL || 'https://mainnet.base.org' }}
       - run: npm run contracts:security
