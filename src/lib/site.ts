@@ -5,7 +5,14 @@ export const INITIAL_TOKEN_SYMBOL = "VOID";
 export const ORIGINAL_SUPPLY = 1_000_000_000;
 export const INITIAL_BURN_REQUIREMENT = 1_000_000;
 export const TAKEOVER_INCREMENT = 250_000;
+export const TAKEOVER_INCREASE_PERCENT = 10;
 export const MAX_STRATEGIC_PREMIUM = 2_000_000;
+
+export function nextTakeoverRequirement(previous: number) {
+  if (previous <= 0) return INITIAL_BURN_REQUIREMENT;
+  const percentageIncrease = Math.floor((previous * (100 + TAKEOVER_INCREASE_PERCENT) + 99) / 100);
+  return Math.max(previous + TAKEOVER_INCREMENT, percentageIncrease);
+}
 
 export function getSiteUrl() {
   return CANONICAL_SITE_URL;

@@ -5,7 +5,7 @@ import { formatUnits } from "viem";
 import { useAccount, useChainId, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { WalletButton } from "@/components/wallet-button";
 import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
-import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, formatNumber } from "@/lib/site";
+import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber, nextTakeoverRequirement } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
 type PendingAuthorization = { id: string; wallet: string; commitment: `0x${string}`; proposedName: string; proposedSymbol: string };
@@ -128,7 +128,7 @@ export function BurnTerminal() {
       formElement.reset();
       if (!isReplacement) {
         const spent = Number(burnAmountWei / 10n ** 18n);
-        const nextMinimum = spent + TAKEOVER_INCREMENT;
+        const nextMinimum = nextTakeoverRequirement(spent);
         setRequiredBurn(nextMinimum);
         setMaximumBurn(nextMinimum + MAX_STRATEGIC_PREMIUM);
         setBurnAmount(String(nextMinimum));
@@ -208,7 +208,7 @@ export function BurnTerminal() {
         <label>
           <span>YOUR RECORD BURN</span>
           <input name="burnAmountDisplay" type="number" min={requiredBurn} max={maximumBurn} step="1" inputMode="numeric" value={burnAmount} onChange={(event) => setBurnAmount(event.target.value)} disabled={ownsActiveSlot} required={!ownsActiveSlot} />
-          <small>Each following burn must be at least {formatNumber(TAKEOVER_INCREMENT)} {tokenSymbol} above the last record. You may add up to {formatNumber(MAX_STRATEGIC_PREMIUM)} extra.</small>
+          <small>The next record must clear both +{formatNumber(TAKEOVER_INCREMENT)} {tokenSymbol} and +{TAKEOVER_INCREASE_PERCENT}%. The larger rule wins. You may add up to {formatNumber(MAX_STRATEGIC_PREMIUM)} extra.</small>
         </label>
         <label>
           <span>NEW IMAGE</span>

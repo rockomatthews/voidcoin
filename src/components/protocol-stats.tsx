@@ -116,7 +116,7 @@ export function ProtocolStats() {
         <div className="ritual-grid">
           <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your {state.symbol} balance.</p></article>
           <article><b>02</b><h3>Build the next identity</h3><p>Choose the next name, ticker, and image. The proposal stays private during review.</p></article>
-          <article><b>03</b><h3>Beat the burn</h3><p>The first record is at least 1,000,000 tokens. Every challenger adds at least 250,000 tokens and may add up to a 2,000,000-token strategic premium.</p></article>
+          <article><b>03</b><h3>Beat both rules</h3><p>The first record is 1,000,000 tokens. Every challenger must add at least 250,000 tokens and beat the prior record by 10%. Whichever requirement is larger controls the floor.</p></article>
           <article><b>04</b><h3>Change everything</h3><p>Once approved, the token image, name, ticker, header, hero, title, and archive update together.</p></article>
         </div>
       </section>
@@ -133,7 +133,7 @@ export function ProtocolStats() {
 
       <section className="changes-section" aria-labelledby="changes-heading">
         <div className="section-heading"><span>ONCHAIN LOG</span><h2 id="changes-heading">LATEST CHANGES</h2></div>
-        <div className="changes-table-wrap">
+        <div className="changes-table-wrap" tabIndex={0} role="region" aria-label="Latest identity changes table">
           <table><thead><tr><th>When</th><th>Identity</th><th>Burned</th><th>By</th><th>Transactions</th></tr></thead>
             <tbody>{changes.length ? changes.slice(0, 12).map((identity) => (
               <tr key={identity.burnId}><td>{when(identity.timestamp)}</td><td><strong>{identity.name}</strong> / ${identity.symbol}</td><td>{formatNumber(identity.burnAmount)} {state.symbol}</td><td><a href={`https://basescan.org/address/${identity.burner}`} target="_blank" rel="noreferrer">{shortAddress(identity.burner)}</a></td><td>{identity.burnTransactionHash ? <a href={`https://basescan.org/tx/${identity.burnTransactionHash}`} target="_blank" rel="noreferrer">BURN ↗</a> : null}{identity.transactionHash ? <a href={`https://basescan.org/tx/${identity.transactionHash}`} target="_blank" rel="noreferrer">UPDATE ↗</a> : null}</td></tr>

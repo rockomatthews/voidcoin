@@ -1,5 +1,7 @@
 # Launch gates
 
+> Historical V1 launch gates. VOIDCOIN V2 does not use the curve or graduation system described below. Use `V2_LAUNCH_GATES.md` for the active rebuild.
+
 No later gate implies approval of an earlier one. Record the approver, timestamp, network, addresses, transaction hashes, and artifacts for every gate.
 
 ## 1. Local verification

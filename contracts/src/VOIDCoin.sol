@@ -124,7 +124,7 @@ contract VOIDCoin is ERC20, Ownable2Step {
         return currentBurnId + 1;
     }
 
-    function nextBurnRequirement() public view returns (uint256) {
+    function nextBurnRequirement() public view virtual returns (uint256) {
         return recordBurn == 0 ? INITIAL_BURN : recordBurn + TAKEOVER_INCREMENT;
     }
 

@@ -2,6 +2,11 @@ import { base } from "viem/chains";
 
 export const MAINNET_VOIDCOIN_ADDRESS = "0xF6508F41851E1E956113b31571E67A315D0832A4" as const;
 export const MAINNET_VOID_CURVE_ADDRESS = "0x5963228022a745f1F0DE3ce82001774968982924" as const;
+export const BASE_WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as const;
+export const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+export const BASE_UNISWAP_V3_QUOTER_V2 = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a" as const;
+export const WETH_USDC_POOL_FEE = 500;
+export const VOID_USDC_POOL_FEE = 10_000;
 
 export const voidCoinAbi = [
   {
@@ -117,6 +122,34 @@ export const voidBondingCurveAbi = [
   { type: "function", name: "graduated", stateMutability: "view", inputs: [], outputs: [{ name: "value", type: "bool" }] },
 ] as const;
 
+export const voidV2BuyRouterAbi = [
+  {
+    type: "function",
+    name: "buyWithETH",
+    stateMutability: "payable",
+    inputs: [{ name: "minimumTokensOut", type: "uint256" }],
+    outputs: [{ name: "tokensOut", type: "uint256" }],
+  },
+] as const;
+
+export const uniswapQuoterV2Abi = [
+  {
+    type: "function",
+    name: "quoteExactInput",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "path", type: "bytes" },
+      { name: "amountIn", type: "uint256" },
+    ],
+    outputs: [
+      { name: "amountOut", type: "uint256" },
+      { name: "sqrtPriceX96AfterList", type: "uint160[]" },
+      { name: "initializedTicksCrossedList", type: "uint32[]" },
+      { name: "gasEstimate", type: "uint256" },
+    ],
+  },
+] as const;
+
 export function configuredChainId() {
   return base.id;
 }
@@ -126,8 +159,17 @@ export function configuredChain() {
 }
 
 export function configuredContractAddress() {
-  const address = process.env.NEXT_PUBLIC_VOIDCOIN_ADDRESS;
+  const address = process.env.NEXT_PUBLIC_VOIDCOIN_V2_ADDRESS ?? process.env.NEXT_PUBLIC_VOIDCOIN_ADDRESS;
   return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_VOIDCOIN_ADDRESS;
+}
+
+export function configuredV2BuyRouterAddress() {
+  const address = process.env.NEXT_PUBLIC_VOID_V2_BUY_ROUTER_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+}
+
+export function configuredMarketVersion() {
+  return process.env.NEXT_PUBLIC_VOIDCOIN_V2_ADDRESS && configuredV2BuyRouterAddress() ? "v2" : "v1";
 }
 
 export function configuredCurveAddress() {

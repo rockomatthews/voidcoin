@@ -31,7 +31,10 @@ for security_target in \
   contracts/src/VOIDLaunch.sol \
   contracts/src/VOIDUniswapV3Migration.sol \
   contracts/src/VOIDGraduationExecutor.sol \
-  contracts/src/VOIDPositionLocker.sol; do
+  contracts/src/VOIDPositionLocker.sol \
+  contracts/src/VOIDCoinV2.sol \
+  contracts/src/VOIDV2Launch.sol \
+  contracts/src/VOIDV2BuyRouter.sol; do
   security_index=$((security_index + 1))
   security_report="$security_tmp_dir/slither-$security_index.json"
   if ! slither "$security_target" \
