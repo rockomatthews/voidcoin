@@ -125,7 +125,7 @@ export function BuyVoid({ symbol }: { symbol: string }) {
         <WalletButton />
       </div>
       <div className="buy-fields">
-        <label><span>YOU PAY</span><div className="buy-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" type="number" min="0.000001" max="1" step="0.001" aria-label="ETH purchase amount" /><b>ETH</b></div></label>
+        <label><span>YOU PAY</span><div className="buy-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" type="number" min="0.000000000000000002" max="1" step="any" required aria-label="ETH purchase amount" /><b>ETH</b></div></label>
         <div className="buy-arrow" aria-hidden="true">→</div>
         <div className="buy-output"><span>YOU RECEIVE — EST.</span><strong>{quote ? tokens.toLocaleString("en-US", { maximumFractionDigits: 0 }) : "—"}</strong><b>{symbol}</b></div>
       </div>
