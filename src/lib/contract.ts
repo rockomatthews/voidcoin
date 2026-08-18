@@ -1,5 +1,8 @@
 import { base } from "viem/chains";
 
+export const MAINNET_VOIDCOIN_ADDRESS = "0xF6508F41851E1E956113b31571E67A315D0832A4" as const;
+export const MAINNET_VOID_CURVE_ADDRESS = "0x5963228022a745f1F0DE3ce82001774968982924" as const;
+
 export const voidCoinAbi = [
   {
     type: "function",
@@ -105,6 +108,15 @@ export const voidCoinAbi = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
+export const voidBondingCurveAbi = [
+  { type: "function", name: "buy", stateMutability: "payable", inputs: [{ name: "minimumTokensOut", type: "uint256" }, { name: "deadline", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
+  { type: "function", name: "quoteBuy", stateMutability: "view", inputs: [{ name: "ethIn", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
+  { type: "function", name: "maxBuyAmount", stateMutability: "view", inputs: [], outputs: [{ name: "amount", type: "uint256" }] },
+  { type: "function", name: "ethReserve", stateMutability: "view", inputs: [], outputs: [{ name: "amount", type: "uint256" }] },
+  { type: "function", name: "graduationThreshold", stateMutability: "view", inputs: [], outputs: [{ name: "amount", type: "uint256" }] },
+  { type: "function", name: "graduated", stateMutability: "view", inputs: [], outputs: [{ name: "value", type: "bool" }] },
+] as const;
+
 export function configuredChainId() {
   return base.id;
 }
@@ -115,5 +127,10 @@ export function configuredChain() {
 
 export function configuredContractAddress() {
   const address = process.env.NEXT_PUBLIC_VOIDCOIN_ADDRESS;
-  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_VOIDCOIN_ADDRESS;
+}
+
+export function configuredCurveAddress() {
+  const address = process.env.NEXT_PUBLIC_BONDING_CURVE_ADDRESS ?? process.env.NEXT_PUBLIC_VOID_CURVE_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_VOID_CURVE_ADDRESS;
 }

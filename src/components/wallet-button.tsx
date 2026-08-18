@@ -18,8 +18,15 @@ export function WalletButton() {
   }
 
   return (
-    <button className="wallet-button" type="button" disabled={isPending || connectors.length === 0} onClick={() => connectors[0] && connect({ connector: connectors[0] })}>
-      {isPending ? "CONNECTING" : "CONNECT WALLET"}
-    </button>
+    <details className="wallet-menu">
+      <summary className="wallet-button">{isPending ? "CONNECTING" : "CONNECT WALLET"}</summary>
+      <div className="wallet-menu-options">
+        {connectors.map((connector) => (
+          <button type="button" disabled={isPending} onClick={() => connect({ connector })} key={connector.uid}>
+            {connector.id === "walletConnect" ? "WALLETCONNECT / QR" : connector.name === "Injected" ? "BROWSER / BASE APP" : connector.name.toUpperCase()}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
