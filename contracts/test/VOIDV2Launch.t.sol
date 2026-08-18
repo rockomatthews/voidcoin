@@ -51,6 +51,8 @@ contract V2MockPositionManager is ERC721, IVOIDV2PositionManager {
     int24 public lastTickUpper;
     uint256 public lastAmount0Desired;
     uint256 public lastAmount1Desired;
+    uint160 internal constant TOKEN0_BOUNDARY = 78_778_025_264_164_499_494;
+    uint160 internal constant TOKEN1_BOUNDARY = 79_680_871_846_404_160_720_201_234_303_411_693_634;
 
     constructor(address weth_) ERC721("Mock Positions", "MOCK-LP") {
         WETH9 = weth_;
@@ -82,6 +84,8 @@ contract V2MockPositionManager is ERC721, IVOIDV2PositionManager {
         lastTickUpper = params.tickUpper;
         lastAmount0Desired = params.amount0Desired;
         lastAmount1Desired = params.amount1Desired;
+        if (params.amount0Desired == 0) require(pool.price() >= TOKEN1_BOUNDARY, "token1 position needs USDC");
+        if (params.amount1Desired == 0) require(pool.price() <= TOKEN0_BOUNDARY, "token0 position needs USDC");
         amount0 = params.amount0Desired;
         amount1 = params.amount1Desired;
         if (amount0 > 0) IERC20(params.token0).safeTransferFrom(msg.sender, address(pool), amount0);

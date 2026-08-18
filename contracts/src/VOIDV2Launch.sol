@@ -53,7 +53,9 @@ contract VOIDV2Launch {
     int24 public constant TOKEN1_START_TICK = 322_400;
     int24 public constant TOKEN1_END_TICK = 414_600;
     uint160 public constant TOKEN0_START_SQRT_PRICE_X96 = 78_778_025_264_164_499_494;
-    uint160 public constant TOKEN1_START_SQRT_PRICE_X96 = 79_680_871_846_404_160_720_201_234_303_384_611_600;
+    // Exact Uniswap TickMath.getSqrtRatioAtTick(414600). Using a decimal approximation one unit below the
+    // tick boundary would put the pool inside the range and make a token-only token1 mint request USDC.
+    uint160 public constant TOKEN1_START_SQRT_PRICE_X96 = 79_680_871_846_404_160_720_201_234_303_411_693_634;
     uint64 public constant TREASURY_VESTING_DURATION = 365 days;
 
     VOIDCoinV2 public immutable token;
