@@ -44,6 +44,14 @@ contract RouterMockSwap is IVOIDV2SwapRouter {
     }
 }
 
+contract ForceRouterETH {
+    constructor() payable {}
+
+    function force(address payable recipient) external {
+        selfdestruct(recipient);
+    }
+}
+
 contract VOIDV2BuyRouterTest is Test {
     RouterMockWETH internal weth;
     RouterMockToken internal usdc;
@@ -85,5 +93,19 @@ contract VOIDV2BuyRouterTest is Test {
         vm.prank(buyer);
         buyRouter.buyWithETH{value: 0.01 ether}(type(uint256).max);
         assertEq(buyer.balance, beforeBalance);
+    }
+
+    function testForcedEthIsPreservedAndPurchaseRetainsNothing() public {
+        ForceRouterETH force = new ForceRouterETH{value: 0.4 ether}();
+        force.force(payable(address(buyRouter)));
+
+        vm.prank(buyer);
+        uint256 output = buyRouter.buyWithETH{value: 0.01 ether}(1);
+
+        assertEq(output, 10_000 ether);
+        assertEq(address(buyRouter).balance, 0.4 ether);
+        assertEq(weth.balanceOf(address(buyRouter)), 0);
+        assertEq(usdc.balanceOf(address(buyRouter)), 0);
+        assertEq(token.balanceOf(address(buyRouter)), 0);
     }
 }

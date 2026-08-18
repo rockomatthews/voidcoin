@@ -25,17 +25,21 @@ contract VOIDV2LaunchForkTest is Test {
     address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     uint24 internal constant WETH_USDC_FEE = 500;
 
-    function testBaseMainnetVirginPoolLaunchAndRealEthPurchase() public {
+    function _forkAndLaunch() private returns (VOIDV2Launch launch) {
         string memory rpc = vm.envOr("BASE_MAINNET_RPC_URL", string(""));
         if (bytes(rpc).length == 0) {
             vm.skip(true);
-            return;
+            return launch;
         }
         vm.createSelectFork(rpc);
+        launch = new VOIDV2Launch(
+            address(new V2ForkSafe()), IVOIDV2PositionManager(POSITION_MANAGER), IERC20(USDC), "ipfs://genesis"
+        );
+    }
 
-        V2ForkSafe safe = new V2ForkSafe();
-        VOIDV2Launch launch =
-            new VOIDV2Launch(address(safe), IVOIDV2PositionManager(POSITION_MANAGER), IERC20(USDC), "ipfs://genesis");
+    function testBaseMainnetVirginPoolLaunchAndRealEthPurchase() public {
+        VOIDV2Launch launch = _forkAndLaunch();
+        if (address(launch) == address(0)) return;
         address token = address(launch.token());
         (uint160 startingPrice,,,,,,) = IVOIDV3PoolStateFull(launch.pool()).slot0();
         uint160 expectedPrice =
@@ -81,5 +85,31 @@ contract VOIDV2LaunchForkTest is Test {
         (uint160 priceAfterSell,,,,,,) = IVOIDV3PoolStateFull(launch.pool()).slot0();
         if (token < USDC) assertLt(priceAfterSell, priceAfter);
         else assertGt(priceAfterSell, priceAfter);
+    }
+
+    function testOneDollarAtGenesisBuysApproximatelyInitialTakeover() public {
+        VOIDV2Launch launch = _forkAndLaunch();
+        if (address(launch) == address(0)) return;
+
+        address buyer = makeAddr("oneDollarBuyer");
+        deal(USDC, buyer, 1_000_000);
+        vm.startPrank(buyer);
+        IERC20(USDC).approve(SWAP_ROUTER_02, 1_000_000);
+        uint256 tokensOut = IVOIDV2SwapRouter(SWAP_ROUTER_02)
+            .exactInput(
+                IVOIDV2SwapRouter.ExactInputParams({
+                path: abi.encodePacked(USDC, launch.POOL_FEE(), address(launch.token())),
+                recipient: buyer,
+                amountIn: 1_000_000,
+                amountOutMinimum: 1
+            })
+            );
+        vm.stopPrank();
+
+        assertEq(IERC20(USDC).balanceOf(buyer), 0);
+        assertEq(launch.token().balanceOf(buyer), tokensOut);
+        emit log_named_decimal_uint("VOID received for exactly 1 USDC", tokensOut, 18);
+        assertGe(tokensOut, launch.token().INITIAL_BURN());
+        assertLe(tokensOut, 1_020_000 ether);
     }
 }

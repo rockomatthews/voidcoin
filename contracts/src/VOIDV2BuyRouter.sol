@@ -68,6 +68,7 @@ contract VOIDV2BuyRouter is ReentrancyGuard {
     // slither-disable-start reentrancy-balance
     function buyWithETH(uint256 minimumTokensOut) external payable nonReentrant returns (uint256 tokensOut) {
         if (msg.value == 0 || minimumTokensOut == 0) revert ZeroInput();
+        uint256 ethBefore = address(this).balance - msg.value;
         uint256 wethBefore = weth.balanceOf(address(this));
         uint256 usdcBefore = usdc.balanceOf(address(this));
         uint256 tokenBefore = token.balanceOf(address(this));
@@ -85,8 +86,8 @@ contract VOIDV2BuyRouter is ReentrancyGuard {
         IERC20(address(weth)).forceApprove(address(swapRouter), 0);
 
         if (
-            weth.balanceOf(address(this)) != wethBefore || usdc.balanceOf(address(this)) != usdcBefore
-                || token.balanceOf(address(this)) != tokenBefore
+            address(this).balance != ethBefore || weth.balanceOf(address(this)) != wethBefore
+                || usdc.balanceOf(address(this)) != usdcBefore || token.balanceOf(address(this)) != tokenBefore
         ) revert UnexpectedBalance();
         emit TokensPurchased(msg.sender, msg.value, tokensOut);
     }

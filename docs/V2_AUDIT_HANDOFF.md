@@ -65,3 +65,12 @@ forge test --match-path 'test/VOIDV2Launch.fork.t.sol' -vvvv
 ```
 
 The fork test must run, not skip. Record the Base block number and RPC provider. Add adversarial tests rather than relying on the included happy-path mocks.
+
+## Builder evidence before independent review
+
+- QuickNode Base Mainnet fork block: `50113189`.
+- An exact `1.000000 USDC` genesis swap through official Base `SwapRouter02` returned
+  `1,000,334.084833147896168246 VOID`, enough for the initial `1,000,000 VOID` takeover.
+- The same fork suite completed a real ETH → WETH → USDC → VOID purchase and a VOID → USDC sale.
+- Unit deployment tests exercise both token-address orderings and their symmetric starting prices and ranges.
+- These are builder results, not substitutes for the requested independent review.

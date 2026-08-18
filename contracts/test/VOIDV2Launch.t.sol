@@ -45,6 +45,10 @@ contract V2MockPositionManager is ERC721, IVOIDV2PositionManager {
     uint256 public nextTokenId = 1;
     bool public hostile;
     uint24 public lastFee;
+    address public lastToken0;
+    address public lastToken1;
+    int24 public lastTickLower;
+    int24 public lastTickUpper;
     uint256 public lastAmount0Desired;
     uint256 public lastAmount1Desired;
 
@@ -72,6 +76,10 @@ contract V2MockPositionManager is ERC721, IVOIDV2PositionManager {
         returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)
     {
         lastFee = params.fee;
+        lastToken0 = params.token0;
+        lastToken1 = params.token1;
+        lastTickLower = params.tickLower;
+        lastTickUpper = params.tickUpper;
         lastAmount0Desired = params.amount0Desired;
         lastAmount1Desired = params.amount1Desired;
         amount0 = params.amount0Desired;
@@ -126,5 +134,35 @@ contract VOIDV2LaunchTest is Test {
         // Multiplying by 1e12 decimal adjustment gives ~$0.000000988669 per VOID.
         uint256 microDollarsPerMillionTokens = 988_669;
         assertApproxEqAbs(microDollarsPerMillionTokens, 1_000_000, 12_000);
+    }
+
+    function testSymmetricMarketWhenVoidIsToken0() public {
+        address highUsdc = address(uint160(type(uint160).max - 1));
+        vm.etch(highUsdc, hex"00");
+        V2MockPositionManager localManager = new V2MockPositionManager(address(weth));
+
+        VOIDV2Launch launch = new VOIDV2Launch(address(safe), localManager, IERC20(highUsdc), "ipfs://genesis");
+
+        assertLt(uint160(address(launch.token())), uint160(highUsdc));
+        assertEq(localManager.lastToken0(), address(launch.token()));
+        assertEq(localManager.lastToken1(), highUsdc);
+        assertEq(localManager.lastTickLower(), launch.TOKEN0_START_TICK());
+        assertEq(localManager.lastTickUpper(), launch.TOKEN0_END_TICK());
+        assertEq(localManager.pool().price(), launch.TOKEN0_START_SQRT_PRICE_X96());
+    }
+
+    function testSymmetricMarketWhenVoidIsToken1() public {
+        address lowUsdc = address(0x1000);
+        vm.etch(lowUsdc, hex"00");
+        V2MockPositionManager localManager = new V2MockPositionManager(address(weth));
+
+        VOIDV2Launch launch = new VOIDV2Launch(address(safe), localManager, IERC20(lowUsdc), "ipfs://genesis");
+
+        assertGt(uint160(address(launch.token())), uint160(lowUsdc));
+        assertEq(localManager.lastToken0(), lowUsdc);
+        assertEq(localManager.lastToken1(), address(launch.token()));
+        assertEq(localManager.lastTickLower(), launch.TOKEN1_START_TICK());
+        assertEq(localManager.lastTickUpper(), launch.TOKEN1_END_TICK());
+        assertEq(localManager.pool().price(), launch.TOKEN1_START_SQRT_PRICE_X96());
     }
 }

@@ -16,6 +16,7 @@ No later gate approves an earlier gate. V1 deployment authority and V2 deploymen
 - Prove the pool is created through the official Base Uniswap v3 position manager.
 - Prove the LP NFT is minted directly to the 365-day locker.
 - Execute a real ETH → WETH → USDC → VOID purchase through official `SwapRouter02`.
+- Execute an exact 1 USDC genesis purchase and prove it acquires at least the initial 1,000,000 VOID takeover.
 - Confirm price moves upward in dollar terms for both possible token-address orderings.
 - Add and pass a normal Uniswap sell test after the first buy.
 - Record the exact fork block used for release evidence.
