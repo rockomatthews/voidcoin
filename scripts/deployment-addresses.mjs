@@ -4,22 +4,17 @@ import { base } from "viem/chains";
 export function predictDeploymentAddresses(deployerAddress, deployerNonce) {
   const deployer = getAddress(deployerAddress);
   const nonce = BigInt(deployerNonce);
-  const migrationTarget = getContractAddress({ from: deployer, nonce });
-  const positionLocker = getContractAddress({ from: deployer, nonce: nonce + 1n });
-  const launch = getContractAddress({ from: deployer, nonce: nonce + 2n });
-  const graduationExecutor = getContractAddress({ from: deployer, nonce: nonce + 3n });
+  const launch = getContractAddress({ from: deployer, nonce });
 
   return {
     chainId: base.id,
     deployer,
     deployerNonce: nonce.toString(),
-    migrationTarget,
-    positionLocker,
     launch,
-    graduationExecutor,
-    vestingWallet: getContractAddress({ from: launch, nonce: 1n }),
-    token: getContractAddress({ from: launch, nonce: 2n }),
-    bondingCurve: getContractAddress({ from: launch, nonce: 3n }),
+    buyRouter: getContractAddress({ from: deployer, nonce: nonce + 1n }),
+    positionLocker: getContractAddress({ from: launch, nonce: 1n }),
+    vestingWallet: getContractAddress({ from: launch, nonce: 2n }),
+    token: getContractAddress({ from: launch, nonce: 3n }),
   };
 }
 

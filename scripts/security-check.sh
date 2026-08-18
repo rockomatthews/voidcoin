@@ -33,6 +33,7 @@ for security_target in \
   contracts/src/VOIDGraduationExecutor.sol \
   contracts/src/VOIDPositionLocker.sol \
   contracts/src/VOIDCoinV2.sol \
+  contracts/src/VOIDV2TreasuryVesting.sol \
   contracts/src/VOIDV2Launch.sol \
   contracts/src/VOIDV2BuyRouter.sol; do
   security_index=$((security_index + 1))

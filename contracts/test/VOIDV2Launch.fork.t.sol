@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {VOIDV2Launch, IVOIDV2PositionManager} from "../src/VOIDV2Launch.sol";
 import {VOIDV2BuyRouter, IVOIDV2WETH, IVOIDV2SwapRouter} from "../src/VOIDV2BuyRouter.sol";
 
@@ -16,7 +17,11 @@ interface IWETH9Reader {
     function WETH9() external view returns (address);
 }
 
-contract V2ForkSafe {}
+contract V2ForkSafe is IERC721Receiver {
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+}
 
 contract VOIDV2LaunchForkTest is Test {
     address internal constant POSITION_MANAGER = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
@@ -24,6 +29,8 @@ contract VOIDV2LaunchForkTest is Test {
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
     address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     uint24 internal constant WETH_USDC_FEE = 500;
+    uint160 internal constant TOKEN0_TIGHT_END_PRICE = 256_358_048_611_545_180_537;
+    uint160 internal constant TOKEN1_TIGHT_END_PRICE = 24_485_682_307_943_691_926_823_743_933_324_015_623;
 
     function _forkAndLaunch() private returns (VOIDV2Launch launch) {
         string memory rpc = vm.envOr("BASE_MAINNET_RPC_URL", string(""));
@@ -47,6 +54,7 @@ contract VOIDV2LaunchForkTest is Test {
         assertEq(startingPrice, expectedPrice);
         assertEq(IWETH9Reader(POSITION_MANAGER).WETH9(), WETH);
         assertEq(launch.tokensSeeded() + launch.launchDustBurned(), launch.token().LAUNCH_ALLOCATION());
+        assertEq(launch.positionLocker().unlockAt(launch.widePositionTokenId()), block.timestamp + 365 days);
 
         VOIDV2BuyRouter buyRouter = new VOIDV2BuyRouter(
             IVOIDV2WETH(WETH),
@@ -111,5 +119,41 @@ contract VOIDV2LaunchForkTest is Test {
         emit log_named_decimal_uint("VOID received for exactly 1 USDC", tokensOut, 18);
         assertGe(tokensOut, launch.token().INITIAL_BURN());
         assertLe(tokensOut, 1_020_000 ether);
+    }
+
+    function testBuyingContinuesAfterTightRangeIsExhausted() public {
+        VOIDV2Launch launch = _forkAndLaunch();
+        if (address(launch) == address(0)) return;
+
+        address buyer = makeAddr("rangeCrossingBuyer");
+        deal(USDC, buyer, 101_000e6);
+        vm.startPrank(buyer);
+        IERC20(USDC).approve(SWAP_ROUTER_02, type(uint256).max);
+        uint256 firstOut = IVOIDV2SwapRouter(SWAP_ROUTER_02)
+            .exactInput(
+                IVOIDV2SwapRouter.ExactInputParams({
+                path: abi.encodePacked(USDC, launch.POOL_FEE(), address(launch.token())),
+                recipient: buyer,
+                amountIn: 100_000e6,
+                amountOutMinimum: 1
+            })
+            );
+        (uint160 crossedPrice,,,,,,) = IVOIDV3PoolStateFull(launch.pool()).slot0();
+        if (address(launch.token()) < USDC) assertGt(crossedPrice, TOKEN0_TIGHT_END_PRICE);
+        else assertLt(crossedPrice, TOKEN1_TIGHT_END_PRICE);
+
+        uint256 secondOut = IVOIDV2SwapRouter(SWAP_ROUTER_02)
+            .exactInput(
+                IVOIDV2SwapRouter.ExactInputParams({
+                path: abi.encodePacked(USDC, launch.POOL_FEE(), address(launch.token())),
+                recipient: buyer,
+                amountIn: 1_000e6,
+                amountOutMinimum: 1
+            })
+            );
+        vm.stopPrank();
+
+        assertGt(firstOut, 0);
+        assertGt(secondOut, 0);
     }
 }

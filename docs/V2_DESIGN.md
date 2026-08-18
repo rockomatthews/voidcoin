@@ -16,13 +16,16 @@ A challenger may choose any whole-token amount from that floor through 2,000,000
 - Venue: official Base Uniswap v3 position manager.
 - Fee: 1% for the VOID/USDC pool.
 - Starting tick: `-414600` when VOID sorts as token0, or the symmetric `414600` when VOID sorts as token1.
-- Range end: the symmetric price range extends roughly 10,000× above the opening price.
-- Allocation: up to 980,000,000 VOID enters the locked position; position-manager rounding dust is burned atomically.
-- Creator allocation: 20,000,000 VOID enters an OpenZeppelin `VestingWallet` for the Safe, linear over 365 days from deployment.
-- LP custody: the Uniswap NFT is minted directly into `VOIDPositionLocker` for 365 days.
+- Tight range: 70% of the LP allocation spans `-414600 → -391000`, or the symmetric token1 range. This preserves the approximately $1 initial takeover.
+- Wide range: 30% continues from the tight boundary to tick `-230000`, or the symmetric token1 range. This removes the original ~$98,500 hard stop and extends liquidity to roughly $100 per VOID.
+- Allocation: up to 980,000,000 VOID enters the two locked positions; position-manager rounding dust is burned atomically.
+- Creator allocation: 20,000,000 VOID enters immutable, non-transferable vesting for the Safe, with a 30-day cliff and full vesting after 365 days.
+- LP custody: both Uniswap NFTs are minted directly into `VOIDPositionLocker` for 365 days.
 - Creator seed capital: zero ETH and zero USDC. Only deployment gas is required.
 
 The pool starts exactly at one edge of a token-only range. The first USDC purchase activates the position and receives VOID. Subsequent net buys move the price upward continuously. Sells return accumulated USDC to sellers and move the price downward. This is a real two-way market; no legitimate design can guarantee the price only rises while also allowing sales.
+
+The pool still starts with zero USDC. Code cannot create quote liquidity without capital. This launch therefore accepts a slower discovery ramp unless genuine buyers supply roughly $5,000 of initial demand; no wash trading is permitted or recommended.
 
 ## ETH purchase path
 
@@ -35,6 +38,8 @@ The router has no owner, fee withdrawal, or mutable route. The buyer supplies a 
 ## Identity behavior
 
 The onchain token `name()`, `symbol()`, and `tokenURI()` remain mutable only through the existing Safe-moderated commit/reveal flow. The public site continues to read those values and changes its header, hero name, ticker, image, browser title, and archive when the Safe approves a proposal.
+
+Dynamic ticker changes remain because they are a core product requirement. Moderation must reject impersonation of existing assets, brands, or projects. Third-party classifiers can still flag a changing symbol despite moderation, and no contract can force those services to update or remove a warning.
 
 Wallets, Base App, BaseScan, Uniswap, and market-data providers may cache ERC-20 metadata. The contract and VOIDCOIN website can update immediately, but third-party refresh timing is outside protocol control.
 

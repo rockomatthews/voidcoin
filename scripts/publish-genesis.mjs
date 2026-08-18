@@ -29,7 +29,7 @@ const metadata = {
   symbol: "VOID",
   decimals: 18,
   description:
-    "VOIDCOIN is a Base-native token whose identity is claimed by setting the highest permanent burn record. The first takeover burns 1,000,000 VOID; each challenger must burn at least 250,000 VOID more than the current record. Approved takeovers change the token's name, ticker, and image while https://voidcoin.fun remains permanent.",
+    "VOIDCOIN is a Base-native token whose identity is claimed by setting the highest permanent burn record. The first takeover burns 1,000,000 VOID; each new record must exceed the last by both the fixed and percentage rules: at least 250,000 VOID and 10%. Approved takeovers change the token's name, ticker, and image while https://voidcoin.fun remains permanent.",
   image: imageURI,
   images: [imageURI],
   icons: [imageURI],

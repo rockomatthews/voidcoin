@@ -3,11 +3,12 @@ pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {VestingWallet} from "@openzeppelin/contracts/finance/VestingWallet.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {VOIDCoinV2} from "./VOIDCoinV2.sol";
 import {VOIDPositionLocker} from "./VOIDPositionLocker.sol";
+import {VOIDV2TreasuryVesting} from "./VOIDV2TreasuryVesting.sol";
 
 interface IVOIDV3PoolState {
     function slot0() external view returns (uint160 sqrtPriceX96);
@@ -49,31 +50,40 @@ contract VOIDV2Launch {
     uint256 public constant MINIMUM_MINT_BPS = 9_990;
     uint24 public constant POOL_FEE = 10_000; // 1%
     int24 public constant TOKEN0_START_TICK = -414_600;
-    int24 public constant TOKEN0_END_TICK = -322_400;
-    int24 public constant TOKEN1_START_TICK = 322_400;
+    int24 public constant TOKEN0_TIGHT_END_TICK = -391_000;
+    int24 public constant TOKEN0_WIDE_END_TICK = -230_000;
+    int24 public constant TOKEN1_WIDE_START_TICK = 230_000;
+    int24 public constant TOKEN1_TIGHT_START_TICK = 391_000;
     int24 public constant TOKEN1_END_TICK = 414_600;
+    uint256 public constant TIGHT_ALLOCATION_BPS = 7_000;
     uint160 public constant TOKEN0_START_SQRT_PRICE_X96 = 78_778_025_264_164_499_494;
     // Exact Uniswap TickMath.getSqrtRatioAtTick(414600). Using a decimal approximation one unit below the
     // tick boundary would put the pool inside the range and make a token-only token1 mint request USDC.
     uint160 public constant TOKEN1_START_SQRT_PRICE_X96 = 79_680_871_846_404_160_720_201_234_303_411_693_634;
-    uint64 public constant TREASURY_VESTING_DURATION = 365 days;
 
     VOIDCoinV2 public immutable token;
-    VestingWallet public immutable vestingWallet;
+    VOIDV2TreasuryVesting public immutable vestingWallet;
     VOIDPositionLocker public immutable positionLocker;
     IVOIDV2PositionManager public immutable positionManager;
     IERC20 public immutable usdc;
     address public immutable pool;
     uint256 public immutable positionTokenId;
+    uint256 public immutable widePositionTokenId;
     uint128 public immutable positionLiquidity;
+    uint128 public immutable widePositionLiquidity;
+    uint256 public immutable tightTokensSeeded;
+    uint256 public immutable wideTokensSeeded;
     uint256 public immutable tokensSeeded;
     uint256 public immutable launchDustBurned;
 
     struct MarketResult {
         address pool;
-        uint256 tokenId;
-        uint128 liquidity;
-        uint256 tokenUsed;
+        uint256 tightTokenId;
+        uint256 wideTokenId;
+        uint128 tightLiquidity;
+        uint128 wideLiquidity;
+        uint256 tightTokenUsed;
+        uint256 wideTokenUsed;
         uint160 startingPrice;
         int24 tickLower;
         int24 tickUpper;
@@ -84,6 +94,7 @@ contract VOIDV2Launch {
     error HostilePoolPrice();
     error InsufficientLiquidityMinted();
     error UnexpectedAssetUse();
+    error SafeCannotReceivePosition();
 
     event VisibleMarketCreated(
         address indexed token,
@@ -106,10 +117,19 @@ contract VOIDV2Launch {
             revert InvalidContract();
         }
         if (bytes(initialTokenURI).length == 0) revert InvalidContract();
+        // Capability probe only: no state change or value transfer; exact selector validation follows.
+        // slither-disable-next-line low-level-calls
+        (bool acceptsPosition, bytes memory receiverResult) =
+            safe.staticcall(abi.encodeCall(IERC721Receiver.onERC721Received, (safe, safe, 0, "")));
+        if (
+            !acceptsPosition || receiverResult.length < 32
+                || abi.decode(receiverResult, (bytes4)) != IERC721Receiver.onERC721Received.selector
+        ) revert SafeCannotReceivePosition();
 
         VOIDPositionLocker locker = new VOIDPositionLocker(IERC721(address(positionManager_)), safe);
-        VestingWallet vesting = new VestingWallet(safe, uint64(block.timestamp), TREASURY_VESTING_DURATION);
+        VOIDV2TreasuryVesting vesting = new VOIDV2TreasuryVesting(safe);
         VOIDCoinV2 coin = new VOIDCoinV2(safe, address(this), address(vesting), initialTokenURI);
+        vesting.initialize(IERC20(address(coin)));
         MarketResult memory market = _createMarket(positionManager_, usdc_, coin, locker);
 
         uint256 dust = coin.balanceOf(address(this));
@@ -125,18 +145,22 @@ contract VOIDV2Launch {
         positionManager = positionManager_;
         usdc = usdc_;
         pool = market.pool;
-        positionTokenId = market.tokenId;
-        positionLiquidity = market.liquidity;
-        tokensSeeded = market.tokenUsed;
+        positionTokenId = market.tightTokenId;
+        widePositionTokenId = market.wideTokenId;
+        positionLiquidity = market.tightLiquidity;
+        widePositionLiquidity = market.wideLiquidity;
+        tightTokensSeeded = market.tightTokenUsed;
+        wideTokensSeeded = market.wideTokenUsed;
+        tokensSeeded = market.tightTokenUsed + market.wideTokenUsed;
         launchDustBurned = dust;
 
         emit VisibleMarketCreated(
             address(coin),
             market.pool,
-            market.tokenId,
+            market.tightTokenId,
             address(locker),
-            market.tokenUsed,
-            market.liquidity,
+            market.tightTokenUsed + market.wideTokenUsed,
+            market.tightLiquidity + market.wideLiquidity,
             market.startingPrice,
             market.tickLower,
             market.tickUpper
@@ -155,8 +179,8 @@ contract VOIDV2Launch {
         address token0 = tokenIsToken0 ? address(coin) : address(usdc_);
         address token1 = tokenIsToken0 ? address(usdc_) : address(coin);
         result.startingPrice = tokenIsToken0 ? TOKEN0_START_SQRT_PRICE_X96 : TOKEN1_START_SQRT_PRICE_X96;
-        result.tickLower = tokenIsToken0 ? TOKEN0_START_TICK : TOKEN1_START_TICK;
-        result.tickUpper = tokenIsToken0 ? TOKEN0_END_TICK : TOKEN1_END_TICK;
+        result.tickLower = tokenIsToken0 ? TOKEN0_START_TICK : TOKEN1_TIGHT_START_TICK;
+        result.tickUpper = tokenIsToken0 ? TOKEN0_TIGHT_END_TICK : TOKEN1_END_TICK;
 
         result.pool =
             positionManager_.createAndInitializePoolIfNecessary(token0, token1, POOL_FEE, result.startingPrice);
@@ -167,16 +191,39 @@ contract VOIDV2Launch {
         if (livePrice != result.startingPrice) revert HostilePoolPrice();
 
         uint256 launchAllocation = coin.LAUNCH_ALLOCATION();
-        uint256 minimumTokenUse = Math.mulDiv(launchAllocation, MINIMUM_MINT_BPS, BPS);
+        uint256 tightAllocation = Math.mulDiv(launchAllocation, TIGHT_ALLOCATION_BPS, BPS);
+        uint256 wideAllocation = launchAllocation - tightAllocation;
         IERC20(address(coin)).forceApprove(address(positionManager_), launchAllocation);
+        (result.tightTokenId, result.tightLiquidity, result.tightTokenUsed) = _mintTokenOnlyPosition(
+            positionManager_, locker, token0, token1, tokenIsToken0, result.tickLower, result.tickUpper, tightAllocation
+        );
+        int24 wideLower = tokenIsToken0 ? TOKEN0_TIGHT_END_TICK : TOKEN1_WIDE_START_TICK;
+        int24 wideUpper = tokenIsToken0 ? TOKEN0_WIDE_END_TICK : TOKEN1_TIGHT_START_TICK;
+        (result.wideTokenId, result.wideLiquidity, result.wideTokenUsed) = _mintTokenOnlyPosition(
+            positionManager_, locker, token0, token1, tokenIsToken0, wideLower, wideUpper, wideAllocation
+        );
+        IERC20(address(coin)).forceApprove(address(positionManager_), 0);
+    }
+
+    function _mintTokenOnlyPosition(
+        IVOIDV2PositionManager positionManager_,
+        VOIDPositionLocker locker,
+        address token0,
+        address token1,
+        bool tokenIsToken0,
+        int24 tickLower,
+        int24 tickUpper,
+        uint256 allocation
+    ) private returns (uint256 tokenId, uint128 liquidity, uint256 tokenUsed) {
+        uint256 minimumTokenUse = Math.mulDiv(allocation, MINIMUM_MINT_BPS, BPS);
         IVOIDV2PositionManager.MintParams memory params = IVOIDV2PositionManager.MintParams({
             token0: token0,
             token1: token1,
             fee: POOL_FEE,
-            tickLower: result.tickLower,
-            tickUpper: result.tickUpper,
-            amount0Desired: tokenIsToken0 ? launchAllocation : 0,
-            amount1Desired: tokenIsToken0 ? 0 : launchAllocation,
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            amount0Desired: tokenIsToken0 ? allocation : 0,
+            amount1Desired: tokenIsToken0 ? 0 : allocation,
             amount0Min: tokenIsToken0 ? minimumTokenUse : 0,
             amount1Min: tokenIsToken0 ? 0 : minimumTokenUse,
             recipient: address(locker),
@@ -184,17 +231,16 @@ contract VOIDV2Launch {
         });
         uint256 amount0;
         uint256 amount1;
-        (result.tokenId, result.liquidity, amount0, amount1) = positionManager_.mint(params);
-        IERC20(address(coin)).forceApprove(address(positionManager_), 0);
+        (tokenId, liquidity, amount0, amount1) = positionManager_.mint(params);
 
-        result.tokenUsed = tokenIsToken0 ? amount0 : amount1;
+        tokenUsed = tokenIsToken0 ? amount0 : amount1;
         uint256 usdcUsed = tokenIsToken0 ? amount1 : amount0;
         // Zero token IDs/liquidity are explicit invalid mint sentinels.
         // slither-disable-next-line incorrect-equality
-        if (result.tokenId == 0 || result.liquidity == 0 || result.tokenUsed < minimumTokenUse) {
+        if (tokenId == 0 || liquidity == 0 || tokenUsed < minimumTokenUse) {
             revert InsufficientLiquidityMinted();
         }
-        if (usdcUsed != 0 || result.tokenUsed > launchAllocation) revert UnexpectedAssetUse();
-        locker.registerPosition(result.tokenId);
+        if (usdcUsed != 0 || tokenUsed > allocation) revert UnexpectedAssetUse();
+        locker.registerPosition(tokenId);
     }
 }

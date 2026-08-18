@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {VOIDCoinV2} from "../src/VOIDCoinV2.sol";
 import {VOIDV2Launch, IVOIDV2PositionManager, IVOIDV3PoolState} from "../src/VOIDV2Launch.sol";
@@ -51,6 +52,10 @@ contract V2MockPositionManager is ERC721, IVOIDV2PositionManager {
     int24 public lastTickUpper;
     uint256 public lastAmount0Desired;
     uint256 public lastAmount1Desired;
+    uint256 public totalAmount0Desired;
+    uint256 public totalAmount1Desired;
+    mapping(uint256 tokenId => int24 tickLower) public tickLowerByTokenId;
+    mapping(uint256 tokenId => int24 tickUpper) public tickUpperByTokenId;
     uint160 internal constant TOKEN0_BOUNDARY = 78_778_025_264_164_499_494;
     uint160 internal constant TOKEN1_BOUNDARY = 79_680_871_846_404_160_720_201_234_303_411_693_634;
 
@@ -84,6 +89,8 @@ contract V2MockPositionManager is ERC721, IVOIDV2PositionManager {
         lastTickUpper = params.tickUpper;
         lastAmount0Desired = params.amount0Desired;
         lastAmount1Desired = params.amount1Desired;
+        totalAmount0Desired += params.amount0Desired;
+        totalAmount1Desired += params.amount1Desired;
         if (params.amount0Desired == 0) require(pool.price() >= TOKEN1_BOUNDARY, "token1 position needs USDC");
         if (params.amount1Desired == 0) require(pool.price() <= TOKEN0_BOUNDARY, "token0 position needs USDC");
         amount0 = params.amount0Desired;
@@ -91,12 +98,20 @@ contract V2MockPositionManager is ERC721, IVOIDV2PositionManager {
         if (amount0 > 0) IERC20(params.token0).safeTransferFrom(msg.sender, address(pool), amount0);
         if (amount1 > 0) IERC20(params.token1).safeTransferFrom(msg.sender, address(pool), amount1);
         tokenId = nextTokenId++;
+        tickLowerByTokenId[tokenId] = params.tickLower;
+        tickUpperByTokenId[tokenId] = params.tickUpper;
         liquidity = 1_000_000;
         _safeMint(params.recipient, tokenId);
     }
 }
 
-contract V2MockSafe {}
+contract V2MockSafe is IERC721Receiver {
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+}
+
+contract V2BareSafe {}
 
 contract VOIDV2LaunchTest is Test {
     V2MockERC20 internal usdc;
@@ -120,11 +135,38 @@ contract VOIDV2LaunchTest is Test {
         assertEq(launch.tokensSeeded(), 980_000_000 ether);
         assertEq(launch.launchDustBurned(), 0);
         assertEq(launch.positionLocker().unlockAt(launch.positionTokenId()), block.timestamp + 365 days);
+        assertEq(launch.positionLocker().unlockAt(launch.widePositionTokenId()), block.timestamp + 365 days);
         assertEq(manager.ownerOf(launch.positionTokenId()), address(launch.positionLocker()));
+        assertEq(manager.ownerOf(launch.widePositionTokenId()), address(launch.positionLocker()));
+        assertEq(launch.tightTokensSeeded(), 686_000_000 ether);
+        assertEq(launch.wideTokensSeeded(), 294_000_000 ether);
         assertEq(manager.lastFee(), 10_000);
         assertTrue(manager.lastAmount0Desired() == 0 || manager.lastAmount1Desired() == 0);
-        assertEq(manager.lastAmount0Desired() + manager.lastAmount1Desired(), 980_000_000 ether);
+        assertEq(manager.totalAmount0Desired() + manager.totalAmount1Desired(), 980_000_000 ether);
         assertEq(token.totalSupply(), 1_000_000_000 ether);
+    }
+
+    function testRejectsSafeThatCannotReceiveReleasedPositions() public {
+        V2BareSafe bareSafe = new V2BareSafe();
+        vm.expectRevert(VOIDV2Launch.SafeCannotReceivePosition.selector);
+        new VOIDV2Launch(address(bareSafe), manager, usdc, "ipfs://genesis");
+    }
+
+    function testCreatorAllocationHasImmutableCliffedVesting() public {
+        VOIDV2Launch launch = new VOIDV2Launch(address(safe), manager, usdc, "ipfs://genesis");
+        uint256 allocation = 20_000_000 ether;
+        assertEq(launch.vestingWallet().beneficiary(), address(safe));
+        assertEq(launch.vestingWallet().vestedAmount(uint64(block.timestamp + 29 days)), 0);
+
+        vm.warp(block.timestamp + 30 days);
+        uint256 firstRelease = launch.vestingWallet().release();
+        assertEq(firstRelease, allocation * 30 days / 365 days);
+        assertEq(launch.token().balanceOf(address(safe)), firstRelease);
+
+        vm.warp(launch.vestingWallet().startsAt() + 365 days);
+        launch.vestingWallet().release();
+        assertEq(launch.token().balanceOf(address(safe)), allocation);
+        assertEq(launch.token().balanceOf(address(launch.vestingWallet())), 0);
     }
 
     function testLaunchRejectsPreinitializedPoolAtWrongPrice() public {
@@ -150,8 +192,10 @@ contract VOIDV2LaunchTest is Test {
         assertLt(uint160(address(launch.token())), uint160(highUsdc));
         assertEq(localManager.lastToken0(), address(launch.token()));
         assertEq(localManager.lastToken1(), highUsdc);
-        assertEq(localManager.lastTickLower(), launch.TOKEN0_START_TICK());
-        assertEq(localManager.lastTickUpper(), launch.TOKEN0_END_TICK());
+        assertEq(localManager.tickLowerByTokenId(launch.positionTokenId()), launch.TOKEN0_START_TICK());
+        assertEq(localManager.tickUpperByTokenId(launch.positionTokenId()), launch.TOKEN0_TIGHT_END_TICK());
+        assertEq(localManager.tickLowerByTokenId(launch.widePositionTokenId()), launch.TOKEN0_TIGHT_END_TICK());
+        assertEq(localManager.tickUpperByTokenId(launch.widePositionTokenId()), launch.TOKEN0_WIDE_END_TICK());
         assertEq(localManager.pool().price(), launch.TOKEN0_START_SQRT_PRICE_X96());
     }
 
@@ -165,8 +209,10 @@ contract VOIDV2LaunchTest is Test {
         assertGt(uint160(address(launch.token())), uint160(lowUsdc));
         assertEq(localManager.lastToken0(), lowUsdc);
         assertEq(localManager.lastToken1(), address(launch.token()));
-        assertEq(localManager.lastTickLower(), launch.TOKEN1_START_TICK());
-        assertEq(localManager.lastTickUpper(), launch.TOKEN1_END_TICK());
+        assertEq(localManager.tickLowerByTokenId(launch.positionTokenId()), launch.TOKEN1_TIGHT_START_TICK());
+        assertEq(localManager.tickUpperByTokenId(launch.positionTokenId()), launch.TOKEN1_END_TICK());
+        assertEq(localManager.tickLowerByTokenId(launch.widePositionTokenId()), launch.TOKEN1_WIDE_START_TICK());
+        assertEq(localManager.tickUpperByTokenId(launch.widePositionTokenId()), launch.TOKEN1_TIGHT_START_TICK());
         assertEq(localManager.pool().price(), launch.TOKEN1_START_SQRT_PRICE_X96());
     }
 }
