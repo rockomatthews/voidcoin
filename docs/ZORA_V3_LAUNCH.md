@@ -34,7 +34,7 @@ Zora's protocol allocation and fee behavior are accepted as protocol-level launc
    npm run calldata --prefix tools/zora-launch
    ```
 
-   Review `tools/zora-launch/zora-launch-calldata.json`. Confirm chain `8453`, Safe creator/payout recipient, `ETH`, `LOW`, name `VOIDCOIN`, ticker `VOID`, and the expected IPFS URI.
+   Review `tools/zora-launch/zora-launch-calldata.json`. Confirm chain `8453`, Safe creator/payout recipient, `ETH`, `LOW`, name `VOIDCOIN`, ticker `VOID`, and the expected IPFS URI. Import `tools/zora-launch/safe-transaction-builder.json` into Safe Transaction Builder; the first file is a verification receipt and is intentionally not importable by Safe.
 
    The generator validates the live metadata by default and sends the launch request to Zora's official `api-sdk.zora.engineering/create/content` endpoint with `startingMarketCap: LOW` explicitly present. This direct request is intentional: Coins SDK 0.8.0 declares the setting but currently omits it from the API request. `ZORA_SKIP_METADATA_VALIDATION=true` exists only for an offline/dummy test and must not be used for production calldata.
 4. Execute the exact Zora creation call through the production Safe. Record the token, pool, block, and transaction hash. Verify the token page works at `https://zora.co/coin/base%3A<TOKEN>` and the token is visible in the Safe.

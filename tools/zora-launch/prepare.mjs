@@ -61,4 +61,30 @@ const receipt = {
 };
 
 await writeFile(new URL("./zora-launch-calldata.json", import.meta.url), `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+const safeBatch = {
+  version: "1.0",
+  chainId: String(base.id),
+  createdAt: Date.now(),
+  meta: {
+    name: "Create VOIDCOIN on Zora",
+    description: `Create the Zora Content Coin at ${receipt.predictedCoinAddress}`,
+    txBuilderVersion: "1.18.0",
+    createdFromSafeAddress: safeAddress,
+    createdFromOwnerAddress: "",
+    checksum: "",
+  },
+  transactions: receipt.calls.map((call) => ({
+    to: call.to,
+    value: call.value,
+    data: call.data,
+    contractMethod: null,
+    contractInputsValues: null,
+  })),
+};
+await writeFile(
+  new URL("./safe-transaction-builder.json", import.meta.url),
+  `${JSON.stringify(safeBatch, null, 2)}\n`,
+  { mode: 0o600 },
+);
 console.log(JSON.stringify(receipt, null, 2));
+console.log("Safe Transaction Builder file: tools/zora-launch/safe-transaction-builder.json");
