@@ -3,9 +3,9 @@
 import Image from "next/image";
 import { useEffect, useState, type CSSProperties } from "react";
 import { BurnTerminal } from "@/components/burn-terminal";
-import { TradeVoidZora } from "@/components/trade-void-zora";
+import { configuredTokenAddress } from "@/lib/contract";
 import { INITIAL_BURN_REQUIREMENT, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber } from "@/lib/site";
-import { liveIdentityFromContract } from "@/lib/token-metadata";
+import { liveIdentityFromContract, officialTokenLinks } from "@/lib/token-metadata";
 
 interface CurrentIdentity {
   name: string;
@@ -25,6 +25,8 @@ const tunnelPlanes = Array.from({ length: 12 }, (_, index) => ({
 }));
 
 export function DynamicIdentityHero() {
+  const tokenAddress = configuredTokenAddress();
+  const baseAppUrl = tokenAddress ? officialTokenLinks(tokenAddress).baseApp : null;
   const [identity, setIdentity] = useState(genesis);
   const [nextBurn, setNextBurn] = useState(INITIAL_BURN_REQUIREMENT);
 
@@ -61,7 +63,10 @@ export function DynamicIdentityHero() {
           <span><Image src={image} alt="" width={34} height={34} unoptimized={remoteImage} /></span>
           {identity.name} <small>${identity.symbol}</small>
         </a>
-        <span className="network-mark">BASE MAINNET</span>
+        <div className="nav-actions">
+          <span className="network-mark">BASE MAINNET</span>
+          {baseAppUrl ? <a className="nav-market-link" href={baseAppUrl} target="_blank" rel="noreferrer">BUY ON BASE ↗</a> : null}
+        </div>
       </nav>
 
       <section className="void-hero" id="top" aria-labelledby="void-title">
@@ -78,7 +83,6 @@ export function DynamicIdentityHero() {
         <h1 id="void-title"><strong>{identity.name}</strong><span>${identity.symbol}</span></h1>
         <p className="void-message">The first identity change permanently burns <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {identity.symbol}</b>. Every next record must clear both +{formatNumber(TAKEOVER_INCREMENT)} tokens and +{TAKEOVER_INCREASE_PERCENT}%. The larger increase wins.</p>
         <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} {identity.symbol}</strong></div>
-        <TradeVoidZora symbol={identity.symbol} />
         <details className="request-drawer hero-request-drawer">
           <summary>REQUEST THE NEXT IDENTITY <span>+</span></summary>
           <BurnTerminal />

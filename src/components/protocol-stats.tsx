@@ -13,6 +13,8 @@ interface ChainState {
   recordBurn: number;
   nextBurnAmount: number;
   recordBurner: string | null;
+  controllerConfigured: boolean;
+  renamePaused: boolean;
 }
 
 interface BurnEvent {
@@ -42,7 +44,7 @@ interface MarketState {
   priceChange24h: number | null;
 }
 
-const previewState: ChainState = { name: "VOIDCOIN", symbol: "VOID", originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null };
+const previewState: ChainState = { name: "VOIDCOIN", symbol: "VOID", originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null, controllerConfigured: false, renamePaused: true };
 const previewMarket: MarketState = { priceUsd: null, marketCap: null, liquidityUsd: null, volume24h: null, priceChange24h: null };
 
 function usd(value: number | null) {
@@ -98,7 +100,7 @@ export function ProtocolStats() {
     <>
       <section className="stats-band" aria-label={`${state.name} supply statistics`}>
         <article><span>BURNED FOREVER</span><strong>{formatNumber(state.burned)}</strong><small>{((state.burned / state.originalSupply) * 100).toFixed(3)}% OF ORIGINAL SUPPLY</small></article>
-        <article><span>DESTROYED VALUE</span><strong>{usd(burnedValue)}</strong><small>{market.priceUsd === null ? "AVAILABLE AFTER TRADING BEGINS" : `AT ${usd(market.priceUsd)} PER TOKEN`}</small></article>
+        <article><span>DESTROYED VALUE</span><strong>{usd(burnedValue)}</strong><small>{market.priceUsd === null ? "WAITING FOR MARKET INDEXING" : `AT ${usd(market.priceUsd)} PER TOKEN`}</small></article>
         <article><span>CURRENT SUPPLY</span><strong>{formatNumber(state.currentSupply)}</strong><small>OUT OF {formatNumber(state.originalSupply)} MINTED</small></article>
       </section>
 
@@ -110,7 +112,7 @@ export function ProtocolStats() {
           <article><span>LIQUIDITY</span><strong>{usd(market.liquidityUsd)}</strong></article>
           <article><span>24H VOLUME</span><strong>{usd(market.volume24h)}</strong></article>
           <article><span>24H CHANGE</span><strong className={(market.priceChange24h ?? 0) >= 0 ? "positive" : "negative"}>{market.priceChange24h === null ? "—" : `${market.priceChange24h > 0 ? "+" : ""}${market.priceChange24h.toFixed(1)}%`}</strong></article>
-          <article><span>NEXT BURN</span><strong>{formatNumber(state.nextBurnAmount)} {state.symbol}</strong></article>
+          <article><span>IDENTITY ENGINE</span><strong>{!state.controllerConfigured ? "PENDING" : state.renamePaused ? "PAUSED" : "LIVE"}</strong></article>
         </div>
         <div className="market-links" aria-label="Official VOIDCOIN contract and market links">
           {contractAddress ? <>

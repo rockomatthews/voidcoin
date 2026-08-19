@@ -7,12 +7,44 @@ import { imageFromTokenURI } from "@/lib/token-metadata";
 export async function GET() {
   const tokenAddress = configuredTokenAddress();
   const controllerAddress = configuredControllerAddress();
-  if (!tokenAddress || !controllerAddress) {
+  if (!tokenAddress) {
     return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, image: "/voidcoin-logo.png", tokenURI: null, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
   }
 
   try {
     const client = getPublicClient();
+    if (!controllerAddress) {
+      const [name, symbol, supply, uri] = await Promise.all([
+        client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "name" }),
+        client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "symbol" }),
+        client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "totalSupply" }),
+        client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "tokenURI" }),
+      ]);
+      const image = await imageFromTokenURI(uri);
+      return Response.json({
+        mode: "live",
+        configured: true,
+        controllerConfigured: false,
+        address: tokenAddress,
+        tokenAddress,
+        controllerAddress: null,
+        name,
+        symbol,
+        tokenURI: uri,
+        image,
+        originalSupply: ORIGINAL_SUPPLY,
+        currentSupply: Number(formatUnits(supply, 18)),
+        burned: 0,
+        recordBurn: 0,
+        nextBurnAmount: INITIAL_BURN_REQUIREMENT,
+        maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM,
+        recordBurner: null,
+        renamePaused: true,
+        activeSlot: null,
+        message: "Identity controller deployment pending",
+      }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15" } });
+    }
+
     const [name, symbol, supply, burned, paused, slot, uri, record, nextRequirement, maximumBurn, recordHolder] = await Promise.all([
       client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "name" }),
       client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "symbol" }),
@@ -30,6 +62,7 @@ export async function GET() {
     return Response.json({
       mode: "live",
       configured: true,
+      controllerConfigured: true,
       address: tokenAddress,
       tokenAddress,
       controllerAddress,

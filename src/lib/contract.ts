@@ -1,6 +1,7 @@
 import { base } from "viem/chains";
 
 export const MAINNET_VOIDCOIN_ADDRESS = "0xF6508F41851E1E956113b31571E67A315D0832A4" as const;
+export const MAINNET_ZORA_VOID_ADDRESS = "0x4A64F213558Fb0188e3FC48918948EC590A66733" as const;
 export const MAINNET_VOID_CURVE_ADDRESS = "0x5963228022a745f1F0DE3ce82001774968982924" as const;
 export const BASE_WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as const;
 export const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -178,7 +179,7 @@ export function configuredContractAddress() {
 
 export function configuredTokenAddress() {
   const address = process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS;
-  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_ZORA_VOID_ADDRESS;
 }
 
 export function configuredControllerAddress() {
