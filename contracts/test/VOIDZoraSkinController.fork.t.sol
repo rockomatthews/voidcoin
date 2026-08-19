@@ -25,6 +25,8 @@ contract VOIDZoraSkinControllerForkTest is Test {
             return;
         }
         vm.createSelectFork(rpcURL);
+        vm.deal(SAFE, 1 ether);
+        vm.deal(burner, 1 ether);
         controller = new VOIDZoraSkinController(SAFE, TOKEN);
 
         vm.prank(SAFE);
