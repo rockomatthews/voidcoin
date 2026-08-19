@@ -1,4 +1,4 @@
-import { configuredContractAddress } from "@/lib/contract";
+import { configuredTokenAddress } from "@/lib/contract";
 
 interface DexPair {
   chainId?: string;
@@ -11,7 +11,7 @@ interface DexPair {
 }
 
 export async function GET() {
-  const address = configuredContractAddress();
+  const address = configuredTokenAddress();
   if (!address) return Response.json({ configured: false, priceUsd: null, marketCap: null, liquidityUsd: null, volume24h: null, priceChange24h: null });
 
   try {

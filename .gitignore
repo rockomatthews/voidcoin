@@ -8,6 +8,8 @@ node_modules
 coverage
 cache
 assets/genesis/published.json
+assets/genesis/zora-published.json
+tools/zora-launch/zora-launch-calldata.json
 contracts/cache
 contracts/out
 contracts/broadcast

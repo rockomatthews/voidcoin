@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { configuredContractAddress } from "@/lib/contract";
+import { configuredTokenAddress, zoraTradeUrl } from "@/lib/contract";
 import { INITIAL_BURN_REQUIREMENT, formatNumber, shortAddress } from "@/lib/site";
 
 interface ChainState {
@@ -55,7 +55,8 @@ function when(timestamp: number | null) {
 }
 
 export function ProtocolStats() {
-  const contractAddress = configuredContractAddress();
+  const contractAddress = configuredTokenAddress();
+  const zoraUrl = zoraTradeUrl(contractAddress);
   const [state, setState] = useState(previewState);
   const [market, setMarket] = useState(previewMarket);
   const [identities, setIdentities] = useState<Identity[]>([]);
@@ -112,14 +113,17 @@ export function ProtocolStats() {
           <article><span>NEXT BURN</span><strong>{formatNumber(state.nextBurnAmount)} {state.symbol}</strong></article>
         </div>
         <div className="market-links" aria-label="Official VOIDCOIN contract and market links">
-          <div><span>CONTRACT ADDRESS</span><code>{contractAddress}</code></div>
-          <nav aria-label="VOIDCOIN links">
-            <a href={`https://basescan.org/token/${contractAddress}`} target="_blank" rel="noreferrer">BASESCAN ↗</a>
-            <a href={`https://app.uniswap.org/explore/tokens/base/${contractAddress}`} target="_blank" rel="noreferrer">UNISWAP ↗</a>
-            <a href={`https://dexscreener.com/base/${contractAddress}`} target="_blank" rel="noreferrer">DEXSCREENER ↗</a>
-            <a href={`https://base.app/coin/base-mainnet/${contractAddress}`} target="_blank" rel="noreferrer">BASE APP ↗</a>
-            <a href={`https://fomo.family/tokens/8453/${contractAddress}`} target="_blank" rel="noreferrer">FOMO ↗</a>
-          </nav>
+          {contractAddress ? <>
+            <div><span>CONTRACT ADDRESS</span><code>{contractAddress}</code></div>
+            <nav aria-label="VOIDCOIN links">
+              <a href={`https://basescan.org/token/${contractAddress}`} target="_blank" rel="noreferrer">BASESCAN ↗</a>
+              {zoraUrl ? <a href={zoraUrl} target="_blank" rel="noreferrer">ZORA ↗</a> : null}
+              <a href={`https://app.uniswap.org/explore/tokens/base/${contractAddress}`} target="_blank" rel="noreferrer">UNISWAP ↗</a>
+              <a href={`https://dexscreener.com/base/${contractAddress}`} target="_blank" rel="noreferrer">DEXSCREENER ↗</a>
+              <a href={`https://base.app/coin/base-mainnet/${contractAddress}`} target="_blank" rel="noreferrer">BASE APP ↗</a>
+              <a href={`https://fomo.family/tokens/8453/${contractAddress}`} target="_blank" rel="noreferrer">FOMO ↗</a>
+            </nav>
+          </> : <div><span>ZORA V3 CONTRACT</span><code>NOT BROADCAST</code></div>}
         </div>
       </section>
 

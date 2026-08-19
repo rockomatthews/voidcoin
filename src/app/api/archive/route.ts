@@ -1,5 +1,5 @@
 import { formatUnits } from "viem";
-import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredControllerAddress, voidSkinControllerAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
 import { imageFromTokenURI } from "@/lib/token-metadata";
 
@@ -16,8 +16,8 @@ interface ArchiveIdentity {
 }
 
 export async function GET() {
-  const address = configuredContractAddress();
-  const deploymentBlock = process.env.NEXT_PUBLIC_VOIDCOIN_DEPLOYMENT_BLOCK;
+  const address = configuredControllerAddress();
+  const deploymentBlock = process.env.NEXT_PUBLIC_VOID_SKIN_CONTROLLER_DEPLOYMENT_BLOCK;
   if (!address || !deploymentBlock) {
     return Response.json({ configured: false, identities: [{ burnId: "0", name: "VOIDCOIN", symbol: "VOID", image: "/voidcoin-logo.png", burner: "GENESIS", transactionHash: null, burnTransactionHash: null, burnAmount: 0, timestamp: null }], burns: [] });
   }
@@ -26,8 +26,8 @@ export async function GET() {
     const client = getPublicClient();
     const fromBlock = BigInt(deploymentBlock);
     const [skinLogs, burnLogs] = await Promise.all([
-      client.getContractEvents({ address, abi: voidCoinAbi, eventName: "SkinChanged", fromBlock, toBlock: "latest" }),
-      client.getContractEvents({ address, abi: voidCoinAbi, eventName: "RenameBurned", fromBlock, toBlock: "latest" }),
+      client.getContractEvents({ address, abi: voidSkinControllerAbi, eventName: "SkinChanged", fromBlock, toBlock: "latest" }),
+      client.getContractEvents({ address, abi: voidSkinControllerAbi, eventName: "RenameBurned", fromBlock, toBlock: "latest" }),
     ]);
     const blockNumbers = [...new Set([...skinLogs, ...burnLogs].flatMap((log) => log.blockNumber === null ? [] : [log.blockNumber]))];
     const blocks = await Promise.all(blockNumbers.map((blockNumber) => client.getBlock({ blockNumber })));

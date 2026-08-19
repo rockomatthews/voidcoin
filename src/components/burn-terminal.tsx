@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useChainId, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { WalletButton } from "@/components/wallet-button";
-import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredChainId, configuredControllerAddress, configuredTokenAddress, voidSkinControllerAbi, zoraContentCoinAbi } from "@/lib/contract";
 import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber, nextTakeoverRequirement } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
@@ -14,7 +14,8 @@ export function BurnTerminal() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const targetChainId = configuredChainId();
-  const contractAddress = configuredContractAddress();
+  const tokenAddress = configuredTokenAddress();
+  const controllerAddress = configuredControllerAddress();
   const publicClient = usePublicClient({ chainId: targetChainId });
   const { switchChainAsync } = useSwitchChain();
   const { signMessageAsync } = useSignMessage();
@@ -71,13 +72,13 @@ export function BurnTerminal() {
   }, [address]);
 
   useEffect(() => {
-    if (!address || !contractAddress || !publicClient) return;
+    if (!address || !tokenAddress || !publicClient) return;
     let cancelled = false;
-    publicClient.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "balanceOf", args: [address] })
+    publicClient.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "balanceOf", args: [address] })
       .then((value) => { if (!cancelled) setBalanceState({ wallet: address, value: Number(formatUnits(value, 18)) }); })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [address, contractAddress, publicClient]);
+  }, [address, tokenAddress, publicClient]);
 
   const balance = address && balanceState?.wallet.toLowerCase() === address.toLowerCase() ? balanceState.value : null;
   const authorization = address && pendingAuthorization?.wallet.toLowerCase() === address.toLowerCase() ? pendingAuthorization : null;
@@ -85,7 +86,7 @@ export function BurnTerminal() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!address || !contractAddress || !publicClient) return;
+    if (!address || !tokenAddress || !controllerAddress || !publicClient) return;
     const formElement = event.currentTarget;
     const values = new FormData(formElement);
     try {
@@ -111,10 +112,18 @@ export function BurnTerminal() {
       setPhase("burning");
       const isReplacement = prepared.mode === "replace";
       const burnAmountWei = BigInt(prepared.burnAmount);
-      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol} in your wallet.`);
+      if (!isReplacement) {
+        const allowance = await publicClient.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "allowance", args: [address, controllerAddress] });
+        if (allowance < burnAmountWei) {
+          setMessage(`Approve the transformation controller to use exactly ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}. This approval does not burn yet.`);
+          const approvalHash = await writeContractAsync({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "approve", args: [controllerAddress, burnAmountWei], chainId: targetChainId });
+          await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+        }
+      }
+      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent Zora token burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}.`);
       const transactionHash = isReplacement
-        ? await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "replaceCommitment", args: [prepared.commitment], chainId: targetChainId })
-        : await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "burnForRename", args: [burnAmountWei, prepared.commitment], chainId: targetChainId });
+        ? await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [prepared.commitment], chainId: targetChainId })
+        : await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "burnForRename", args: [burnAmountWei, prepared.commitment], chainId: targetChainId });
 
       setPhase("confirming");
       setMessage("Burn submitted. Waiting for Base confirmation and moderation intake.");
@@ -142,12 +151,12 @@ export function BurnTerminal() {
   }
 
   async function authorizeApprovedMetadata() {
-    if (!authorization || !contractAddress || !publicClient) return;
+    if (!authorization || !controllerAddress || !publicClient) return;
     try {
       if (chainId !== targetChainId) await switchChainAsync({ chainId: targetChainId });
       setPhase("burning");
       setMessage("Authorize the moderator-approved IPFS metadata. This does not burn additional VOID.");
-      const transactionHash = await writeContractAsync({ address: contractAddress, abi: voidCoinAbi, functionName: "replaceCommitment", args: [authorization.commitment], chainId: targetChainId });
+      const transactionHash = await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [authorization.commitment], chainId: targetChainId });
       setPhase("confirming");
       await publicClient.waitForTransactionReceipt({ hash: transactionHash });
       const response = await fetch(`/api/requests/${authorization.id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash, mode: "replace" }) });
@@ -162,8 +171,8 @@ export function BurnTerminal() {
     }
   }
 
-  const disabledReason = !contractAddress
-    ? "The Base Mainnet contract has not been deployed yet."
+  const disabledReason = !tokenAddress || !controllerAddress
+    ? "The Zora coin and transformation controller are not active yet."
     : !isConnected
       ? "Connect a wallet to enter the chamber."
       : !ownsActiveSlot && (!Number.isSafeInteger(burnAmountNumber) || burnAmountNumber < requiredBurn)

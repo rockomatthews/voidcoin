@@ -40,8 +40,7 @@ contract DeployVOIDCoinV2 is Script {
         );
 
         vm.startBroadcast();
-        launch =
-            new VOIDV2Launch(safe, IVOIDV2PositionManager(POSITION_MANAGER), IERC20(USDC), initialTokenURI);
+        launch = new VOIDV2Launch(safe, IVOIDV2PositionManager(POSITION_MANAGER), IERC20(USDC), initialTokenURI);
         buyRouter = new VOIDV2BuyRouter(
             IVOIDV2WETH(WETH),
             IERC20(USDC),

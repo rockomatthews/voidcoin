@@ -1,35 +1,38 @@
 import { formatUnits } from "viem";
-import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredControllerAddress, configuredTokenAddress, voidSkinControllerAbi, zoraContentCoinAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
 import { INITIAL_BURN_REQUIREMENT, INITIAL_TOKEN_NAME, INITIAL_TOKEN_SYMBOL, MAX_STRATEGIC_PREMIUM, ORIGINAL_SUPPLY } from "@/lib/site";
 import { imageFromTokenURI } from "@/lib/token-metadata";
 
 export async function GET() {
-  const address = configuredContractAddress();
-  if (!address) {
+  const tokenAddress = configuredTokenAddress();
+  const controllerAddress = configuredControllerAddress();
+  if (!tokenAddress || !controllerAddress) {
     return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, image: "/voidcoin-logo.png", tokenURI: null, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
   }
 
   try {
     const client = getPublicClient();
     const [name, symbol, supply, burned, paused, slot, uri, record, nextRequirement, maximumBurn, recordHolder] = await Promise.all([
-      client.readContract({ address, abi: voidCoinAbi, functionName: "name" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "symbol" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "totalSupply" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "destroyedSupply" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "renamePaused" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "activeSlot" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "tokenURI" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "recordBurn" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "nextBurnRequirement" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "maximumBurnAmount" }),
-      client.readContract({ address, abi: voidCoinAbi, functionName: "recordBurner" }),
+      client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "name" }),
+      client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "symbol" }),
+      client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "totalSupply" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "destroyedSupply" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "renamePaused" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "activeSlot" }),
+      client.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "tokenURI" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "recordBurn" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "nextBurnRequirement" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "maximumBurnAmount" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "recordBurner" }),
     ]);
     const image = await imageFromTokenURI(uri);
     return Response.json({
       mode: "live",
       configured: true,
-      address,
+      address: tokenAddress,
+      tokenAddress,
+      controllerAddress,
       name,
       symbol,
       tokenURI: uri,

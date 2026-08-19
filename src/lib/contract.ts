@@ -8,7 +8,7 @@ export const BASE_UNISWAP_V3_QUOTER_V2 = "0x3d4e44Eb1374240CE5F1B871ab261CD16335
 export const WETH_USDC_POOL_FEE = 500;
 export const VOID_USDC_POOL_FEE = 10_000;
 
-export const voidCoinAbi = [
+export const voidSkinControllerAbi = [
   {
     type: "function",
     name: "burnForRename",
@@ -53,11 +53,8 @@ export const voidCoinAbi = [
   { type: "function", name: "recordBurner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   { type: "function", name: "nextBurnRequirement", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "maximumBurnAmount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "destroyedSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", name: "tokenURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "contestBurned", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "renamePaused", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   {
     type: "function",
@@ -110,8 +107,21 @@ export const voidCoinAbi = [
       { name: "imageHash", type: "bytes32", indexed: false },
     ],
   },
-  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
+
+export const zoraContentCoinAbi = [
+  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "tokenURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
+] as const;
+
+// Historical V1/V2 modules still import this name. New production code must use
+// voidSkinControllerAbi and zoraContentCoinAbi explicitly.
+export const voidCoinAbi = voidSkinControllerAbi;
 
 export const voidBondingCurveAbi = [
   { type: "function", name: "buy", stateMutability: "payable", inputs: [{ name: "minimumTokensOut", type: "uint256" }, { name: "deadline", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
@@ -159,8 +169,17 @@ export function configuredChain() {
 }
 
 export function configuredContractAddress() {
-  const address = process.env.NEXT_PUBLIC_VOIDCOIN_V2_ADDRESS ?? process.env.NEXT_PUBLIC_VOIDCOIN_ADDRESS;
-  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_VOIDCOIN_ADDRESS;
+  return configuredTokenAddress();
+}
+
+export function configuredTokenAddress() {
+  const address = process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+}
+
+export function configuredControllerAddress() {
+  const address = process.env.NEXT_PUBLIC_VOID_SKIN_CONTROLLER_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
 }
 
 export function configuredV2BuyRouterAddress() {
@@ -169,7 +188,11 @@ export function configuredV2BuyRouterAddress() {
 }
 
 export function configuredMarketVersion() {
-  return process.env.NEXT_PUBLIC_VOIDCOIN_V2_ADDRESS && configuredV2BuyRouterAddress() ? "v2" : "v1";
+  return configuredTokenAddress() ? "zora" : "preview";
+}
+
+export function zoraTradeUrl(address = configuredTokenAddress()) {
+  return address ? `https://zora.co/coin/base%3A${address}` : null;
 }
 
 export function configuredCurveAddress() {

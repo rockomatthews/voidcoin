@@ -3,9 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState, type CSSProperties } from "react";
 import { BurnTerminal } from "@/components/burn-terminal";
-import { BuyVoid } from "@/components/buy-void";
-import { BuyVoidV2 } from "@/components/buy-void-v2";
-import { configuredMarketVersion } from "@/lib/contract";
+import { TradeVoidZora } from "@/components/trade-void-zora";
 import { INITIAL_BURN_REQUIREMENT, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber } from "@/lib/site";
 import { liveIdentityFromContract } from "@/lib/token-metadata";
 
@@ -55,7 +53,6 @@ export function DynamicIdentityHero() {
 
   const image = identity.image ?? "/voidcoin-logo.png";
   const remoteImage = image.startsWith("http");
-  const marketVersion = configuredMarketVersion();
 
   return (
     <>
@@ -79,9 +76,9 @@ export function DynamicIdentityHero() {
         </div>
         <p className="void-label">TRY TO CONTROL THE COIN THAT TRANSFORMS</p>
         <h1 id="void-title"><strong>{identity.name}</strong><span>${identity.symbol}</span></h1>
-        <p className="void-message">The first identity change burns <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {identity.symbol}</b>—priced at about $1 when V2 opens. Every next record must clear both +{formatNumber(TAKEOVER_INCREMENT)} tokens and +{TAKEOVER_INCREASE_PERCENT}%. The larger increase wins.</p>
+        <p className="void-message">The first identity change permanently burns <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {identity.symbol}</b>. Every next record must clear both +{formatNumber(TAKEOVER_INCREMENT)} tokens and +{TAKEOVER_INCREASE_PERCENT}%. The larger increase wins.</p>
         <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} {identity.symbol}</strong></div>
-        {marketVersion === "v2" ? <BuyVoidV2 symbol={identity.symbol} nextBurn={nextBurn} /> : <BuyVoid symbol={identity.symbol} />}
+        <TradeVoidZora symbol={identity.symbol} />
         <details className="request-drawer hero-request-drawer">
           <summary>REQUEST THE NEXT IDENTITY <span>+</span></summary>
           <BurnTerminal />

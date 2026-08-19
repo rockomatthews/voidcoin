@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { encodeFunctionData, keccak256, toBytes } from "viem";
 import { getAdminEmail, isSameOrigin } from "@/lib/auth";
-import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredChainId, configuredControllerAddress, voidSkinControllerAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
 import { getDb, hasDatabase } from "@/lib/db";
 import { renameRequests } from "@/lib/db/schema";
@@ -23,10 +23,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if (body?.action === "approve") {
-    const address = configuredContractAddress();
+    const address = configuredControllerAddress();
     if (!address) return Response.json({ error: "Contract is not configured" }, { status: 503 });
     try {
-      const slot = await getPublicClient().readContract({ address, abi: voidCoinAbi, functionName: "activeSlot" });
+      const slot = await getPublicClient().readContract({ address, abi: voidSkinControllerAbi, functionName: "activeSlot" });
       if (slot.burnId !== proposal.burnId || slot.burner.toLowerCase() !== proposal.wallet || slot.burnAmount !== proposal.burnAmount) {
         await getDb().update(renameRequests).set({ status: "superseded", updatedAt: new Date() }).where(eq(renameRequests.id, id));
         return Response.json({ error: "A higher burn record has superseded this proposal." }, { status: 409 });
@@ -57,9 +57,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (slot.commitment.toLowerCase() !== proposal.commitment.toLowerCase()) {
         return Response.json({ error: "The burner must authorize the final IPFS metadata commitment before Safe approval." }, { status: 409 });
       }
-      const lockCalldata = encodeFunctionData({ abi: voidCoinAbi, functionName: "lockRenameSlot", args: [proposal.burnId] });
+      const lockCalldata = encodeFunctionData({ abi: voidSkinControllerAbi, functionName: "lockRenameSlot", args: [proposal.burnId] });
       const calldata = encodeFunctionData({
-        abi: voidCoinAbi,
+        abi: voidSkinControllerAbi,
         functionName: "approveRename",
         args: [proposal.burnId, proposal.proposedName, proposal.proposedSymbol, proposal.metadataURI, proposal.imageHash as `0x${string}`, proposal.salt as `0x${string}`],
       });

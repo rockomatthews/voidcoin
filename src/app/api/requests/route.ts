@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { put } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
 import { verifyMessage, zeroHash, type Address, type Hex } from "viem";
-import { configuredChainId, configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredChainId, configuredControllerAddress, voidSkinControllerAbi } from "@/lib/contract";
 import { verifyWalletChallenge } from "@/lib/auth";
 import { getPublicClient } from "@/lib/chain";
 import { getDb, hasDatabase } from "@/lib/db";
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const contractAddress = configuredContractAddress();
+  const contractAddress = configuredControllerAddress();
   if (!contractAddress || !hasDatabase() || !process.env.BLOB_READ_WRITE_TOKEN) {
     return Response.json({ error: "Rename intake is not active until the Base Mainnet contract, Neon, and private Blob store are configured." }, { status: 503 });
   }
@@ -50,10 +50,10 @@ export async function POST(request: Request) {
     const sanitized = await sanitizeImage(image);
     const client = getPublicClient();
     const [nextBurnId, nextBurnRequirement, maximumBurnAmount, slot] = await Promise.all([
-      client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "nextBurnId" }),
-      client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "nextBurnRequirement" }),
-      client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "maximumBurnAmount" }),
-      client.readContract({ address: contractAddress, abi: voidCoinAbi, functionName: "activeSlot" }),
+      client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "nextBurnId" }),
+      client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "nextBurnRequirement" }),
+      client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "maximumBurnAmount" }),
+      client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "activeSlot" }),
     ]);
     const isActive = slot.burner !== "0x0000000000000000000000000000000000000000";
     const isReplacement = isActive && slot.burner.toLowerCase() === wallet.toLowerCase();

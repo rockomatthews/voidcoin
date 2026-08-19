@@ -1,5 +1,7 @@
 # VOIDCOIN
 
+> **Active rebuild: Zora V3.** V1 and V2 contracts are preserved as immutable history, but their custom purchase routes are retired. The next token is a Zora Content Coin on Base with a separate competitive-burn identity controller. See [`docs/ZORA_V3_LAUNCH.md`](docs/ZORA_V3_LAUNCH.md). No V3 Mainnet broadcast is included or authorized by the current branch.
+
 VOIDCOIN is a Base-native, escalating-burn identity protocol. V2 launches as **VOIDCOIN (`VOID`)** with a fixed one-billion supply and a real Uniswap v3 VOID/USDC market from its first block. The first challenge burns 1,000,000 VOID, initially priced at approximately $1. Every takeover must clear both the previous record plus 250,000 VOID and the previous record plus 10%; the larger rule wins. A challenger may add up to a 2,000,000 VOID strategic premium. The current record holder controls the private rename proposal, while the owner Safe alone may apply an acceptable name, ticker, and ERC-1046-style metadata URI.
 
 The website purpose and URL are permanent. Its displayed name, ticker, image, header, hero, and browser title always follow the current approved token identity.

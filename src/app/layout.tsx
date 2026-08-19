@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/providers";
 import { getPublicClient } from "@/lib/chain";
-import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredTokenAddress, zoraContentCoinAbi } from "@/lib/contract";
 import { getSiteUrl } from "@/lib/site";
 import { imageFromTokenURI } from "@/lib/token-metadata";
 import "./globals.css";
@@ -12,14 +12,14 @@ export async function generateMetadata(): Promise<Metadata> {
   let name = "VOIDCOIN";
   let symbol = "VOID";
   let image = "/voidcoin-logo.png";
-  const address = configuredContractAddress();
+  const address = configuredTokenAddress();
   if (address) {
     try {
       const client = getPublicClient();
       const [liveName, liveSymbol, tokenURI] = await Promise.all([
-        client.readContract({ address, abi: voidCoinAbi, functionName: "name" }),
-        client.readContract({ address, abi: voidCoinAbi, functionName: "symbol" }),
-        client.readContract({ address, abi: voidCoinAbi, functionName: "tokenURI" }),
+        client.readContract({ address, abi: zoraContentCoinAbi, functionName: "name" }),
+        client.readContract({ address, abi: zoraContentCoinAbi, functionName: "symbol" }),
+        client.readContract({ address, abi: zoraContentCoinAbi, functionName: "tokenURI" }),
       ]);
       name = liveName;
       symbol = liveSymbol;
