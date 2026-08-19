@@ -14,6 +14,7 @@ export const voidSkinControllerAbi = [
     name: "burnForRename",
     stateMutability: "nonpayable",
     inputs: [
+      { name: "expectedBurnId", type: "uint256" },
       { name: "burnAmount", type: "uint256" },
       { name: "commitment", type: "bytes32" },
     ],
@@ -23,7 +24,10 @@ export const voidSkinControllerAbi = [
     type: "function",
     name: "replaceCommitment",
     stateMutability: "nonpayable",
-    inputs: [{ name: "newCommitment", type: "bytes32" }],
+    inputs: [
+      { name: "expectedBurnId", type: "uint256" },
+      { name: "newCommitment", type: "bytes32" },
+    ],
     outputs: [],
   },
   {

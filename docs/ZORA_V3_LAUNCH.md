@@ -38,7 +38,7 @@ Zora's protocol allocation and fee behavior are accepted as protocol-level launc
 
    The generator validates the live metadata by default and sends the launch request to Zora's official `api-sdk.zora.engineering/create/content` endpoint with `startingMarketCap: LOW` explicitly present. This direct request is intentional: Coins SDK 0.8.0 declares the setting but currently omits it from the API request. `ZORA_SKIP_METADATA_VALIDATION=true` exists only for an offline/dummy test and must not be used for production calldata.
 4. Execute the exact Zora creation call through the production Safe. Record the token, pool, block, and transaction hash. Verify the token page works at `https://zora.co/coin/base%3A<TOKEN>` and the token is visible in the Safe.
-5. Set `ZORA_VOID_ADDRESS` to the deployed Content Coin and run the controller script first without `--broadcast`, then obtain a new explicit broadcast authorization.
+5. Set `ZORA_VOID_ADDRESS` to the deployed Content Coin and run the controller script first without `--broadcast`, then obtain a new explicit broadcast authorization. The script is pinned to the production token and Safe addresses, proves the Safe is already a Zora coin owner, and refuses any substitute 1B token or contract.
 6. After the verified controller deploys, the Safe calls `addOwner(controller)` on the Zora coin. Confirm `isOwner(controller) == true`.
 7. The Safe calls `setRenamePaused(false)` on the controller. The contract rejects this step unless it is already a Zora coin owner.
 8. Configure Vercel Preview with `NEXT_PUBLIC_ZORA_VOID_ADDRESS`, `NEXT_PUBLIC_VOID_SKIN_CONTROLLER_ADDRESS`, and the controller deployment block.
@@ -53,7 +53,7 @@ Use a wallet that has never held VOID.
 3. Prove the ERC-20 `Transfer` log credits the fresh wallet and `balanceOf(freshWallet)` increases.
 4. Confirm the balance appears on Zora and can be imported by contract address in the wallet. Base App discovery is an external indexing outcome and must be observed, not assumed.
 5. Open `voidcoin.fun`; confirm the header, hero, title, image, ticker, market links, and balance reader use the same Zora token address.
-6. Approve only the selected burn amount to the controller, submit the first competitive burn, and prove the Zora token's `totalSupply()` falls by exactly that amount.
+6. Approve only the selected burn amount to the controller, submit the first competitive burn with its expected burn ID, and prove the Zora token's `totalSupply()` falls by exactly that amount. A stale prepared ID must revert before any token transfer.
 7. Run a complete private proposal, moderator approval, Safe execution, and confirm the Zora token's actual `name()`, `symbol()`, and `tokenURI()` all change. Confirm the site and archive follow the same state.
 
 Any missing balance, reverted purchase, incorrect recipient, mismatched metadata, or stale V1/V2 address is a launch stop.

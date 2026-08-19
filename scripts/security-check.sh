@@ -28,6 +28,7 @@ security_index=0
 trap 'rm -f "$security_tmp_dir"/*.json; rmdir "$security_tmp_dir"' EXIT
 
 for security_target in \
+  contracts/src/VOIDZoraSkinController.sol \
   contracts/src/VOIDLaunch.sol \
   contracts/src/VOIDUniswapV3Migration.sol \
   contracts/src/VOIDGraduationExecutor.sol \

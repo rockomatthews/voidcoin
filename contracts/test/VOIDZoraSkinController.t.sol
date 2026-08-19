@@ -68,7 +68,7 @@ contract VOIDZoraSkinControllerTest is Test {
         uint256 amount = controller.INITIAL_BURN();
         vm.startPrank(first);
         token.approve(address(controller), amount);
-        controller.burnForRename(amount, keccak256("proposal"));
+        controller.burnForRename(1, amount, keccak256("proposal"));
         vm.stopPrank();
 
         assertEq(token.totalSupply(), controller.ORIGINAL_SUPPLY() - amount);
@@ -92,7 +92,7 @@ contract VOIDZoraSkinControllerTest is Test {
 
         vm.startPrank(first);
         token.approve(address(controller), amount);
-        controller.burnForRename(amount, commitment);
+        controller.burnForRename(burnId, amount, commitment);
         vm.stopPrank();
         vm.prank(safe);
         controller.approveRename(burnId, newName, newSymbol, uri, imageHash, salt);
@@ -129,7 +129,7 @@ contract VOIDZoraSkinControllerTest is Test {
         uint256 supplyBefore = token.totalSupply();
         vm.prank(first);
         vm.expectRevert();
-        controller.burnForRename(1_000_000 ether, keccak256("proposal"));
+        controller.burnForRename(1, 1_000_000 ether, keccak256("proposal"));
         assertEq(token.totalSupply(), supplyBefore);
         assertEq(controller.recordBurn(), 0);
     }
@@ -139,6 +139,37 @@ contract VOIDZoraSkinControllerTest is Test {
         token.burn(10 ether);
         assertEq(controller.destroyedSupply(), 10 ether);
         assertEq(controller.contestBurned(), 0);
+    }
+
+    function testStaleStrategicBurnIdRevertsBeforeTokensMove() public {
+        uint256 strategicAmount = 3_000_000 ether;
+        uint256 staleBurnId = controller.nextBurnId();
+        uint256 secondBalanceBefore = token.balanceOf(second);
+
+        _burn(first, 1_000_000 ether, keccak256("first"));
+
+        vm.startPrank(second);
+        token.approve(address(controller), strategicAmount);
+        vm.expectRevert(VOIDZoraSkinController.UnexpectedBurnId.selector);
+        controller.burnForRename(staleBurnId, strategicAmount, keccak256("stale-strategic"));
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(second), secondBalanceBefore);
+        assertEq(token.allowance(second, address(controller)), strategicAmount);
+        assertEq(controller.recordBurn(), 1_000_000 ether);
+        assertEq(controller.currentBurnId(), 1);
+    }
+
+    function testStaleReplacementBurnIdCannotCorruptCurrentCommitment() public {
+        _burn(first, 1_000_000 ether, keccak256("first"));
+        _burn(second, 1_250_000 ether, keccak256("second"));
+
+        vm.prank(second);
+        vm.expectRevert(VOIDZoraSkinController.UnexpectedBurnId.selector);
+        controller.replaceCommitment(1, keccak256("stale-replacement"));
+
+        assertEq(controller.activeSlot().burnId, 2);
+        assertEq(controller.activeSlot().commitment, keccak256("second"));
     }
 
     function testOnlySafeCanApproveMetadata() public {
@@ -159,7 +190,7 @@ contract VOIDZoraSkinControllerTest is Test {
     function _burn(address burner, uint256 amount, bytes32 commitment) internal {
         vm.startPrank(burner);
         token.approve(address(controller), amount);
-        controller.burnForRename(amount, commitment);
+        controller.burnForRename(controller.nextBurnId(), amount, commitment);
         vm.stopPrank();
     }
 }

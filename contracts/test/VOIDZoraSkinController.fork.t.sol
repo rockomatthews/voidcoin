@@ -49,7 +49,7 @@ contract VOIDZoraSkinControllerForkTest is Test {
 
         vm.startPrank(burner);
         TOKEN.approve(address(controller), burnAmount);
-        controller.burnForRename(burnAmount, commitment);
+        controller.burnForRename(1, burnAmount, commitment);
         vm.stopPrank();
 
         assertEq(TOKEN.totalSupply(), supplyBefore - burnAmount);

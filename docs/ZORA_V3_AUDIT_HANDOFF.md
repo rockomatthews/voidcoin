@@ -31,13 +31,13 @@ The historical V1/V2 curve, migration, Uniswap, vesting, and locker contracts ar
 
 ## Required confirmations
 
-1. `burnForRename` can only consume the caller-approved amount and atomically leaves the controller with zero tokens.
+1. `burnForRename(expectedBurnId, burnAmount, commitment)` rejects stale prepared state before transfer, can only consume the caller-approved amount, and atomically leaves the controller with zero tokens.
 2. A successful contest burn reduces the live Zora coin's `totalSupply()` by exactly the selected amount; failure rolls back transfer, burn, and record state.
 3. The fixed-plus-percentage escalation and 2M strategic premium cap cannot overflow, reset, or create an unreachable rename floor under reachable supply.
 4. Only the production Safe can approve metadata, pause intake, or lock a slot; ownership renunciation is disabled.
 5. Adding the controller as a Zora coin owner does not create any metadata-update path outside a valid active commitment and Safe approval.
 6. Commitment domain separation binds chain ID, controller, burn ID, burner, amount, name, symbol, image hash, metadata URI hash, and salt without replay or ambiguity.
-7. Replacement, takeover, lock, expiry, and moderation flows cannot let a stale or superseded proposal change the live token.
+7. Replacement, takeover, lock, expiry, and moderation flows cannot let a stale or superseded proposal burn against the wrong ID or change the live token.
 8. External Zora calls cannot reenter or leave name, symbol, and metadata URI partially updated.
 9. Direct holder burns outside the contest cannot corrupt contest accounting or escalation.
 10. The deployment script validates the exact live one-billion-supply Zora coin and assigns controller ownership to the Safe from construction.

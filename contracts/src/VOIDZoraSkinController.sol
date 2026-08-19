@@ -54,6 +54,7 @@ contract VOIDZoraSkinController is Ownable2Step, ReentrancyGuard {
     error NoActiveSlot();
     error NotActiveBurner();
     error ZeroCommitment();
+    error UnexpectedBurnId();
     error BurnBelowRequirement();
     error BurnAboveMaximum();
     error BurnDidNotReduceSupply();
@@ -147,36 +148,38 @@ contract VOIDZoraSkinController is Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Pulls the approved Zora coin amount and burns it atomically in the Zora token.
-    function burnForRename(uint256 burnAmount, bytes32 commitment) external nonReentrant {
+    function burnForRename(uint256 expectedBurnId, uint256 burnAmount, bytes32 commitment) external nonReentrant {
         if (renamePaused) revert RenamePaused();
         if (!token.isOwner(address(this))) revert ControllerNotTokenOwner();
         if (commitment == bytes32(0)) revert ZeroCommitment();
         if (_activeSlot.lockedUntil != 0 && block.timestamp <= _activeSlot.lockedUntil) revert SlotLocked();
+        if (expectedBurnId != currentBurnId + 1) revert UnexpectedBurnId();
 
         uint256 minimumAmount = nextBurnRequirement();
         if (burnAmount < minimumAmount) revert BurnBelowRequirement();
         if (burnAmount > minimumAmount + MAX_STRATEGIC_PREMIUM) revert BurnAboveMaximum();
 
         uint256 supplyBefore = token.totalSupply();
-        IERC20(address(token)).safeTransferFrom(msg.sender, address(this), burnAmount);
-        token.burn(burnAmount);
-        if (token.totalSupply() + burnAmount != supplyBefore) revert BurnDidNotReduceSupply();
-
         uint256 previousRecord = recordBurn;
-        uint256 burnId = ++currentBurnId;
+        currentBurnId = expectedBurnId;
         uint64 openedAt = uint64(block.timestamp);
         recordBurn = burnAmount;
         contestBurned += burnAmount;
         recordBurner = msg.sender;
-        _activeSlot = RenameSlot(burnId, msg.sender, burnAmount, commitment, openedAt, 0);
+        _activeSlot = RenameSlot(expectedBurnId, msg.sender, burnAmount, commitment, openedAt, 0);
 
-        emit RenameBurned(burnId, msg.sender, commitment, burnAmount, previousRecord);
+        IERC20(address(token)).safeTransferFrom(msg.sender, address(this), burnAmount);
+        token.burn(burnAmount);
+        if (token.totalSupply() + burnAmount != supplyBefore) revert BurnDidNotReduceSupply();
+
+        emit RenameBurned(expectedBurnId, msg.sender, commitment, burnAmount, previousRecord);
     }
 
-    function replaceCommitment(bytes32 newCommitment) external {
+    function replaceCommitment(uint256 expectedBurnId, bytes32 newCommitment) external {
         RenameSlot memory slot = _activeSlot;
         if (slot.burner == address(0)) revert NoActiveSlot();
         if (msg.sender != slot.burner) revert NotActiveBurner();
+        if (slot.burnId != expectedBurnId) revert UnexpectedBurnId();
         if (newCommitment == bytes32(0)) revert ZeroCommitment();
         if (slot.lockedUntil != 0 && block.timestamp <= slot.lockedUntil) revert SlotLocked();
         if (block.timestamp > slot.openedAt + SLOT_TTL) revert SlotExpired();
@@ -235,9 +238,9 @@ contract VOIDZoraSkinController is Ownable2Step, ReentrancyGuard {
         if (expected != slot.commitment) revert CommitmentMismatch();
         if (!token.isOwner(address(this))) revert ControllerNotTokenOwner();
 
+        delete _activeSlot;
         token.setNameAndSymbol(proposedName, proposedSymbol);
         token.setContractURI(metadataURI);
-        delete _activeSlot;
 
         emit SkinChanged(burnId, slot.burner, proposedName, proposedSymbol, metadataURI, imageHash);
     }
@@ -256,7 +259,7 @@ contract VOIDZoraSkinController is Ownable2Step, ReentrancyGuard {
         if (value.length == 0 || value.length > 15 || value[0] == 0x20 || value[value.length - 1] == 0x20) {
             return false;
         }
-        bool previousSpace;
+        bool previousSpace = false;
         for (uint256 i; i < value.length; ++i) {
             bytes1 char = value[i];
             bool alphanumeric =

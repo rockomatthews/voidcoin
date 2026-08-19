@@ -8,7 +8,7 @@ import { configuredChainId, configuredControllerAddress, configuredTokenAddress,
 import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber, nextTakeoverRequirement } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
-type PendingAuthorization = { id: string; wallet: string; commitment: `0x${string}`; proposedName: string; proposedSymbol: string };
+type PendingAuthorization = { id: string; wallet: string; burnId: string; commitment: `0x${string}`; proposedName: string; proposedSymbol: string };
 
 export function BurnTerminal() {
   const { address, isConnected } = useAccount();
@@ -63,9 +63,9 @@ export function BurnTerminal() {
     const controller = new AbortController();
     fetch(`/api/requests?wallet=${encodeURIComponent(address)}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("requests unavailable")))
-      .then((result: { requests?: Array<{ id: string; status: string; commitment: `0x${string}`; metadataURI: string | null; proposedName: string; proposedSymbol: string }> }) => {
+      .then((result: { requests?: Array<{ id: string; status: string; burnId: string; commitment: `0x${string}`; metadataURI: string | null; proposedName: string; proposedSymbol: string }> }) => {
         const pending = result.requests?.find((item) => item.status === "changes_requested" && item.metadataURI);
-        setPendingAuthorization(pending ? { id: pending.id, wallet: address, commitment: pending.commitment, proposedName: pending.proposedName, proposedSymbol: pending.proposedSymbol } : null);
+        setPendingAuthorization(pending ? { id: pending.id, wallet: address, burnId: pending.burnId, commitment: pending.commitment, proposedName: pending.proposedName, proposedSymbol: pending.proposedSymbol } : null);
       })
       .catch(() => undefined);
     return () => controller.abort();
@@ -122,8 +122,8 @@ export function BurnTerminal() {
       }
       setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent Zora token burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}.`);
       const transactionHash = isReplacement
-        ? await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [prepared.commitment], chainId: targetChainId })
-        : await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "burnForRename", args: [burnAmountWei, prepared.commitment], chainId: targetChainId });
+        ? await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [BigInt(prepared.burnId), prepared.commitment], chainId: targetChainId })
+        : await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "burnForRename", args: [BigInt(prepared.burnId), burnAmountWei, prepared.commitment], chainId: targetChainId });
 
       setPhase("confirming");
       setMessage("Burn submitted. Waiting for Base confirmation and moderation intake.");
@@ -156,7 +156,7 @@ export function BurnTerminal() {
       if (chainId !== targetChainId) await switchChainAsync({ chainId: targetChainId });
       setPhase("burning");
       setMessage("Authorize the moderator-approved IPFS metadata. This does not burn additional VOID.");
-      const transactionHash = await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [authorization.commitment], chainId: targetChainId });
+      const transactionHash = await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [BigInt(authorization.burnId), authorization.commitment], chainId: targetChainId });
       setPhase("confirming");
       await publicClient.waitForTransactionReceipt({ hash: transactionHash });
       const response = await fetch(`/api/requests/${authorization.id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash, mode: "replace" }) });
