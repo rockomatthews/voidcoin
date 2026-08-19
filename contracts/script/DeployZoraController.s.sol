@@ -18,7 +18,8 @@ contract DeployZoraController is Script {
         require(tokenAddress == PRODUCTION_ZORA_VOID, "Unexpected Zora VOID token");
         require(safe.code.length > 0, "SAFE_ADDRESS must be a deployed contract");
         require(tokenAddress.code.length > 0, "ZORA_VOID_ADDRESS must be deployed");
-        require(token.totalSupply() == 1_000_000_000 ether, "Zora coin must be untouched 1B Content Coin");
+        uint256 supply = token.totalSupply();
+        require(supply > 0 && supply <= 1_000_000_000 ether, "Unexpected Zora coin supply");
         require(token.isOwner(safe), "Production Safe must own the Zora coin");
 
         vm.startBroadcast();

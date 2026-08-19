@@ -57,9 +57,9 @@ Keep the second call closed until the controller deployment and source verificat
 
 ## Remaining explicit gates
 
-1. Independent retest of this final expected-burn-ID remediation.
-2. Fresh nonce/address rehearsal and bytecode/source verification plan.
-3. Explicit authorization to broadcast the controller deployment.
+1. Independent retest of the final expected-burn-ID remediation — completed; see `docs/audits/zora/FINAL_RETEST_RECEIPT.md`.
+2. Fresh nonce/address rehearsal and bytecode/source verification plan — required immediately before broadcast.
+3. Explicit authorization to broadcast the controller deployment — received on 2026-08-19 for the controller only.
 4. Post-deployment source verification and ownership/paused-state receipt.
 5. Separate explicit authorization for the Safe to call `addOwner(controller)`.
 6. Separate decision to unpause, configure Preview, run acceptance, and promote the site.
