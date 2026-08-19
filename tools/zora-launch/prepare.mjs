@@ -44,12 +44,20 @@ const receipt = {
   generatedAt: new Date().toISOString(),
   chainId: base.id,
   coinType: "Zora Content Coin",
+  name: "VOIDCOIN",
+  symbol: "VOID",
+  metadataURI,
   currency: "ETH",
   startingMarketCap: "LOW",
   creator: safeAddress,
   payoutRecipient: safeAddress,
   predictedCoinAddress: getAddress(result.predictedCoinAddress),
-  calls: result.calls.map((call) => ({ to: getAddress(call.to), data: call.data, value: String(call.value) })),
+  calls: result.calls.map((call) => ({
+    to: getAddress(call.to),
+    data: call.data,
+    selector: call.data.slice(0, 10),
+    value: String(call.value),
+  })),
 };
 
 await writeFile(new URL("./zora-launch-calldata.json", import.meta.url), `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
