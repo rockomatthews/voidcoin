@@ -1,6 +1,6 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { decodeEventLog, isHash, type Hex } from "viem";
-import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredControllerAddress, voidSkinControllerAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
 import { getDb, hasDatabase } from "@/lib/db";
 import { renameRequests } from "@/lib/db/schema";
@@ -14,7 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const [proposal] = await getDb().select().from(renameRequests).where(eq(renameRequests.id, id)).limit(1);
   if (!proposal) return Response.json({ error: "Request not found" }, { status: 404 });
-  const contractAddress = configuredContractAddress();
+  const contractAddress = configuredControllerAddress();
   if (!contractAddress) return Response.json({ error: "Contract is not configured" }, { status: 503 });
 
   try {
@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const event = receipt.logs
       .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
       .map((log) => {
-        try { return decodeEventLog({ abi: voidCoinAbi, data: log.data, topics: log.topics }); } catch { return null; }
+        try { return decodeEventLog({ abi: voidSkinControllerAbi, data: log.data, topics: log.topics }); } catch { return null; }
       })
       .find((log) => log?.eventName === expectedEvent);
     if (!event || (event.eventName !== "RenameBurned" && event.eventName !== "CommitmentReplaced")) throw new Error(`${expectedEvent} event was not found`);

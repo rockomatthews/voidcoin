@@ -1,4 +1,6 @@
 import { get } from "@vercel/blob";
+import { configuredTokenAddress } from "@/lib/contract";
+import { approvedTokenMetadata } from "@/lib/token-metadata";
 
 async function pinFile(bytes: Uint8Array, filename: string, contentType: string) {
   const jwt = process.env.PINATA_JWT;
@@ -26,13 +28,16 @@ async function pinJson(value: unknown, name: string) {
 }
 
 export async function publishApprovedMetadata(input: { blobUrl: string; name: string; symbol: string; requestId: string }) {
+  const contractAddress = configuredTokenAddress();
+  if (!contractAddress) throw new Error("NEXT_PUBLIC_ZORA_VOID_ADDRESS is not configured");
   const stored = await get(input.blobUrl, { access: "private" });
   if (!stored || stored.statusCode !== 200) throw new Error("Private proposal image could not be read");
   const bytes = new Uint8Array(await new Response(stored.stream).arrayBuffer());
   const file = await pinFile(bytes, `voidcoin-${input.requestId}`, stored.blob.contentType ?? "application/octet-stream");
+  const imageURI = `ipfs://${file.IpfsHash}`;
   const metadata = await pinJson(
-    { interop: { type: "erc20", version: "1.0.0" }, name: input.name, symbol: input.symbol, image: `ipfs://${file.IpfsHash}`, description: "An approved VOIDCOIN identity." },
+    approvedTokenMetadata(input.name, input.symbol, imageURI, contractAddress),
     `voidcoin-${input.requestId}-metadata`,
   );
-  return { metadataURI: `ipfs://${metadata.IpfsHash}`, imageURI: `ipfs://${file.IpfsHash}` };
+  return { metadataURI: `ipfs://${metadata.IpfsHash}`, imageURI };
 }

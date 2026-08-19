@@ -1,20 +1,21 @@
 export const SITE_NAME = "VOIDCOIN";
+export const CANONICAL_SITE_URL = "https://voidcoin.fun";
 export const INITIAL_TOKEN_NAME = "VOIDCOIN";
 export const INITIAL_TOKEN_SYMBOL = "VOID";
 export const ORIGINAL_SUPPLY = 1_000_000_000;
-export const BURN_INCREMENT = 1_000_000;
+export const INITIAL_BURN_REQUIREMENT = 1_000_000;
+export const TAKEOVER_INCREMENT = 250_000;
+export const TAKEOVER_INCREASE_PERCENT = 10;
+export const MAX_STRATEGIC_PREMIUM = 2_000_000;
+
+export function nextTakeoverRequirement(previous: number) {
+  if (previous <= 0) return INITIAL_BURN_REQUIREMENT;
+  const percentageIncrease = Math.floor((previous * (100 + TAKEOVER_INCREASE_PERCENT) + 99) / 100);
+  return Math.max(previous + TAKEOVER_INCREMENT, percentageIncrease);
+}
 
 export function getSiteUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
-  const candidate = configuredUrl || vercelUrl || "http://localhost:3000";
-  const absoluteUrl = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
-
-  try {
-    return new URL(absoluteUrl).origin;
-  } catch {
-    return "http://localhost:3000";
-  }
+  return CANONICAL_SITE_URL;
 }
 
 export function shortAddress(value: string) {

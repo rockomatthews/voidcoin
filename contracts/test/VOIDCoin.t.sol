@@ -26,8 +26,8 @@ contract VOIDCoinTest is Test {
 
     function testInitialAllocationIdentityAndFirstRequirement() public view {
         assertEq(token.totalSupply(), 1_000_000_000 ether);
-        assertEq(token.balanceOf(launch), 860_000_000 ether);
-        assertEq(token.balanceOf(vesting), 100_000_000 ether);
+        assertEq(token.balanceOf(launch), 940_000_000 ether);
+        assertEq(token.balanceOf(vesting), 20_000_000 ether);
         assertEq(token.name(), "VOIDCOIN");
         assertEq(token.symbol(), "VOID");
         assertEq(token.tokenURI(), "ipfs://genesis");
@@ -35,12 +35,25 @@ contract VOIDCoinTest is Test {
         assertTrue(token.renamePaused());
     }
 
+    function testOnlyImmutableLaunchReceiverCanBurnReturnedReserve() public {
+        uint256 amount = 1_000_000 ether;
+        uint256 supplyBefore = token.totalSupply();
+        vm.expectRevert(VOIDCoin.OnlyLaunchReceiver.selector);
+        token.burnLaunchReserve(amount);
+
+        vm.prank(launch);
+        token.burnLaunchReserve(amount);
+        assertEq(token.totalSupply(), supplyBefore - amount);
+        assertEq(token.destroyedSupply(), amount);
+    }
+
     function testRecordBurnCanBeApprovedBySafe() public {
         _unpause();
         uint256 amount = token.nextBurnRequirement();
         uint256 burnId = token.nextBurnId();
-        bytes32 commitment =
-            token.proposalCommitment(burnId, firstBurner, amount, "Night Shift", "NIGHT", imageHash, salt);
+        bytes32 commitment = token.proposalCommitment(
+            burnId, firstBurner, amount, "Night Shift", "NIGHT", imageHash, keccak256(bytes("ipfs://night")), salt
+        );
 
         vm.prank(firstBurner);
         token.burnForRename(amount, commitment);
@@ -49,7 +62,7 @@ contract VOIDCoinTest is Test {
         assertEq(token.destroyedSupply(), amount);
         assertEq(token.recordBurn(), amount);
         assertEq(token.recordBurner(), firstBurner);
-        assertEq(token.nextBurnRequirement(), 2_000_000 ether);
+        assertEq(token.nextBurnRequirement(), 1_250_000 ether);
         assertEq(token.activeSlot().burnAmount, amount);
 
         vm.prank(safe);
@@ -61,15 +74,44 @@ contract VOIDCoinTest is Test {
         assertEq(token.recordBurn(), amount);
     }
 
-    function testChallengerAutomaticallyBurnsNextIncrement() public {
+    function testChallengerCanBurnMinimumNextIncrement() public {
         _unpause();
         _burn(firstBurner, keccak256("first"));
 
         _burn(challenger, keccak256("challenge"));
         assertEq(token.recordBurner(), challenger);
-        assertEq(token.recordBurn(), 2_000_000 ether);
+        assertEq(token.recordBurn(), 1_250_000 ether);
         assertEq(token.activeSlot().burner, challenger);
+        assertEq(token.destroyedSupply(), 2_250_000 ether);
+    }
+
+    function testChallengerCanSetHigherStrategicRecord() public {
+        _unpause();
+        _burn(firstBurner, keccak256("first"));
+
+        uint256 strategicBurn = 2_000_000 ether;
+        vm.prank(challenger);
+        token.burnForRename(strategicBurn, keccak256("strategic"));
+
+        assertEq(token.recordBurner(), challenger);
+        assertEq(token.recordBurn(), strategicBurn);
+        assertEq(token.nextBurnRequirement(), 2_250_000 ether);
         assertEq(token.destroyedSupply(), 3_000_000 ether);
+    }
+
+    function testStrategicRecordCannotJumpBeyondBoundedPremium() public {
+        _unpause();
+        uint256 maximum = token.maximumBurnAmount();
+        vm.prank(challenger);
+        token.burnForRename(maximum, keccak256("maximum"));
+        assertEq(token.recordBurn(), maximum);
+
+        vm.prank(launch);
+        token.transfer(firstBurner, 100_000_000 ether);
+        uint256 tooHigh = token.maximumBurnAmount() + 1;
+        vm.expectRevert(VOIDCoin.BurnAboveMaximum.selector);
+        vm.prank(firstBurner);
+        token.burnForRename(tooHigh, keccak256("terminal-record"));
     }
 
     function testNewRecordSupersedesPendingProposalWithoutRefund() public {
@@ -82,7 +124,7 @@ contract VOIDCoinTest is Test {
         assertEq(token.balanceOf(firstBurner), firstBalanceAfterBurn);
         assertEq(token.activeSlot().burner, challenger);
         assertEq(token.activeSlot().burnId, 2);
-        assertEq(token.nextBurnRequirement(), 3_000_000 ether);
+        assertEq(token.nextBurnRequirement(), 1_500_000 ether);
     }
 
     function testLeaderCanReplaceCommitmentWithoutAnotherBurn() public {
@@ -110,10 +152,18 @@ contract VOIDCoinTest is Test {
         _unpause();
         _burn(challenger, keccak256("first"));
         uint256 burnId = token.nextBurnId();
-        bytes32 commitment =
-            token.proposalCommitment(burnId, firstBurner, 1_000_000 ether, "Clean Name", "CLEAN", imageHash, salt);
+        bytes32 commitment = token.proposalCommitment(
+            burnId,
+            firstBurner,
+            1_000_000 ether,
+            "Clean Name",
+            "CLEAN",
+            imageHash,
+            keccak256(bytes("ipfs://clean")),
+            salt
+        );
         vm.prank(firstBurner);
-        token.burnForRename(2_000_000 ether, commitment);
+        token.burnForRename(1_250_000 ether, commitment);
 
         vm.expectRevert(VOIDCoin.CommitmentMismatch.selector);
         vm.prank(safe);
@@ -126,7 +176,7 @@ contract VOIDCoinTest is Test {
         _burn(firstBurner, keccak256("first"));
         uint256 challengerBalance = token.balanceOf(challenger);
 
-        vm.expectRevert(VOIDCoin.BurnRequirementChanged.selector);
+        vm.expectRevert(VOIDCoin.BurnBelowRequirement.selector);
         vm.prank(challenger);
         token.burnForRename(staleAmount, keccak256("stale"));
 
@@ -142,23 +192,93 @@ contract VOIDCoinTest is Test {
         token.approveRename(1, "Name", "NAME", "ipfs://name", imageHash, salt);
     }
 
+    function testMetadataUriIsBoundByCommitment() public {
+        _unpause();
+        uint256 amount = token.nextBurnRequirement();
+        uint256 burnId = token.nextBurnId();
+        bytes32 commitment = token.proposalCommitment(
+            burnId, firstBurner, amount, "Night Shift", "NIGHT", imageHash, keccak256(bytes("ipfs://night")), salt
+        );
+        vm.prank(firstBurner);
+        token.burnForRename(amount, commitment);
+
+        vm.expectRevert(VOIDCoin.CommitmentMismatch.selector);
+        vm.prank(safe);
+        token.approveRename(burnId, "Night Shift", "NIGHT", "ipfs://different", imageHash, salt);
+    }
+
+    function testApprovalLockPreventsLastSecondSupersession() public {
+        _unpause();
+        _burn(firstBurner, keccak256("first"));
+        uint256 burnId = token.activeSlot().burnId;
+        vm.prank(safe);
+        token.lockRenameSlot(burnId);
+
+        uint256 challengeAmount = token.nextBurnRequirement();
+        vm.expectRevert(VOIDCoin.SlotLocked.selector);
+        vm.prank(challenger);
+        token.burnForRename(challengeAmount, keccak256("challenge"));
+
+        vm.expectRevert(VOIDCoin.SlotLocked.selector);
+        vm.prank(firstBurner);
+        token.replaceCommitment(keccak256("replace"));
+
+        vm.warp(block.timestamp + token.APPROVAL_LOCK_DURATION() + 1);
+        _burn(challenger, keccak256("challenge"));
+        assertEq(token.recordBurner(), challenger);
+    }
+
+    function testApprovalLockCanBeReacquiredAfterExpiry() public {
+        _unpause();
+        _burn(firstBurner, keccak256("first"));
+        uint256 burnId = token.activeSlot().burnId;
+        vm.prank(safe);
+        token.lockRenameSlot(burnId);
+        uint64 firstLock = token.activeSlot().lockedUntil;
+
+        vm.warp(uint256(firstLock) + 1);
+        vm.prank(safe);
+        token.lockRenameSlot(burnId);
+        assertGt(token.activeSlot().lockedUntil, firstLock);
+    }
+
+    function testExpiredSlotCannotBeChangedOrApprovedAndCanBeClearedByAnyone() public {
+        _unpause();
+        _burn(firstBurner, keccak256("first"));
+        uint256 burnId = token.activeSlot().burnId;
+        vm.warp(block.timestamp + token.SLOT_TTL() + 1);
+
+        vm.expectRevert(VOIDCoin.SlotExpired.selector);
+        vm.prank(firstBurner);
+        token.replaceCommitment(keccak256("replace"));
+
+        vm.expectRevert(VOIDCoin.SlotExpired.selector);
+        vm.prank(safe);
+        token.approveRename(burnId, "Night Shift", "NIGHT", "ipfs://night", imageHash, salt);
+
+        vm.prank(challenger);
+        token.expireSlot();
+        assertEq(token.activeSlot().burner, address(0));
+    }
+
     function testFuzzSuccessiveRecordsPermanentlyReduceSupply(uint8 burnCount) public {
         burnCount = uint8(bound(burnCount, 1, 12));
-        uint256 requiredBalance = uint256(burnCount) * (uint256(burnCount) + 1) / 2 * 1_000_000 ether;
+        uint256 count = uint256(burnCount);
+        uint256 requiredBalance = count * token.INITIAL_BURN() + (count * (count - 1) / 2) * token.TAKEOVER_INCREMENT();
         vm.prank(launch);
         token.transfer(firstBurner, requiredBalance);
         _unpause();
 
         uint256 expectedDestroyed;
         for (uint256 i = 1; i <= burnCount; ++i) {
-            uint256 amount = i * 1_000_000 ether;
+            uint256 amount = token.INITIAL_BURN() + (i - 1) * token.TAKEOVER_INCREMENT();
             _burn(firstBurner, keccak256(abi.encode(i)));
             expectedDestroyed += amount;
         }
 
         assertEq(token.destroyedSupply(), expectedDestroyed);
         assertEq(token.totalSupply(), token.ORIGINAL_SUPPLY() - expectedDestroyed);
-        assertEq(token.nextBurnRequirement(), (uint256(burnCount) + 1) * 1_000_000 ether);
+        assertEq(token.nextBurnRequirement(), token.INITIAL_BURN() + count * token.TAKEOVER_INCREMENT());
     }
 
     function _unpause() internal {

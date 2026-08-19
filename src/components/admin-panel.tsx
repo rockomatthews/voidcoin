@@ -20,20 +20,23 @@ interface RequestRow {
 
 export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] }) {
   const [requests, setRequests] = useState(initialRequests);
-  const [output, setOutput] = useState("Select a review action. Approval publishes the image to IPFS, then prepares—but does not execute—the Safe transaction.");
+  const [output, setOutput] = useState("Choose a pending request to review its image, submission history, and Safe approval payload.");
 
   async function act(id: string, action: "request_changes" | "approve") {
     const note = action === "request_changes" ? window.prompt("Private moderation note for the burner:", "Please submit a non-discriminatory replacement.") ?? "" : undefined;
     const response = await fetch(`/api/admin/requests/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, note }) });
     const result = await response.json();
     if (!response.ok) return setOutput(result.error ?? "Action failed");
-    if (result.safeTransaction) {
-      setOutput(`SAFE TRANSACTION READY\nTO: ${result.safeTransaction.to}\nVALUE: 0\nDATA: ${result.safeTransaction.data}`);
-      await navigator.clipboard?.writeText(result.safeTransaction.data).catch(() => undefined);
+    if (result.safeTransactions) {
+      const rendered = result.safeTransactions.map((transaction: { description: string; to: string; data: string }, index: number) => `${index + 1}. ${transaction.description}\nTO: ${transaction.to}\nVALUE: 0\nDATA: ${transaction.data}`).join("\n\n");
+      setOutput(`SAFE BATCH READY — EXECUTE IN ORDER\n${rendered}`);
+      await navigator.clipboard?.writeText(rendered).catch(() => undefined);
+    } else if (result.requiresBurnerAuthorization) {
+      setOutput("CONTENT APPROVED AND PUBLISHED\nThe burner must now authorize the final IPFS metadata commitment. This requires no additional burn. Prepare the Safe batch after that transaction confirms.");
     } else {
       setOutput("Changes requested. The record holder can replace the private proposal without another burn unless a higher record takes control.");
     }
-    setRequests((current) => current.map((item) => item.id === id ? { ...item, status: action === "approve" ? "ready_for_safe" : "changes_requested" } : item));
+    setRequests((current) => current.map((item) => item.id === id ? { ...item, status: result.safeTransactions ? "ready_for_safe" : "changes_requested" } : item));
   }
 
   return (
@@ -43,7 +46,7 @@ export function AdminPanel({ initialRequests }: { initialRequests: RequestRow[] 
         <Link href="/">PUBLIC SITE ↗</Link>
       </header>
       <div className="review-grid">
-        {requests.length === 0 ? <div className="empty-review">No live requests. Configure Neon and complete a Base Mainnet burn to populate this chamber.</div> : requests.map((item) => (
+        {requests.length === 0 ? <div className="empty-review">No identity requests yet. The first confirmed Base Mainnet record burn will appear here automatically.</div> : requests.map((item) => (
           <article className="review-card" key={item.id}>
             <div className="review-meta"><span>BURN / {item.burnId}</span><span>{item.status.replaceAll("_", " ")}</span></div>
             <Image className="review-image" src={`/api/admin/requests/${item.id}/image`} alt={`Private proposed artwork for ${item.proposedName}`} width={640} height={640} unoptimized />

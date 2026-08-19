@@ -1,8 +1,8 @@
 import { formatUnits } from "viem";
-import { configuredContractAddress, voidCoinAbi } from "@/lib/contract";
+import { configuredControllerAddress, voidSkinControllerAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
+import { imageFromTokenURI } from "@/lib/token-metadata";
 
-interface TokenMetadata { image?: string }
 interface ArchiveIdentity {
   burnId: string;
   name: string;
@@ -15,28 +15,9 @@ interface ArchiveIdentity {
   timestamp: number | null;
 }
 
-function ipfsUrl(uri: string) {
-  if (!uri.startsWith("ipfs://")) return null;
-  const cid = uri.slice(7).replace(/^ipfs\//, "");
-  return `${process.env.PINATA_GATEWAY ?? "https://gateway.pinata.cloud/ipfs"}/${cid}`;
-}
-
-async function imageFromMetadata(uri: string) {
-  const url = ipfsUrl(uri);
-  if (!url) return null;
-  try {
-    const response = await fetch(url, { next: { revalidate: 300 }, signal: AbortSignal.timeout(5_000) });
-    if (!response.ok) return null;
-    const metadata = await response.json() as TokenMetadata;
-    return metadata.image ? ipfsUrl(metadata.image) : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function GET() {
-  const address = configuredContractAddress();
-  const deploymentBlock = process.env.NEXT_PUBLIC_VOIDCOIN_DEPLOYMENT_BLOCK;
+  const address = configuredControllerAddress();
+  const deploymentBlock = process.env.NEXT_PUBLIC_VOID_SKIN_CONTROLLER_DEPLOYMENT_BLOCK;
   if (!address || !deploymentBlock) {
     return Response.json({ configured: false, identities: [{ burnId: "0", name: "VOIDCOIN", symbol: "VOID", image: "/voidcoin-logo.png", burner: "GENESIS", transactionHash: null, burnTransactionHash: null, burnAmount: 0, timestamp: null }], burns: [] });
   }
@@ -45,8 +26,8 @@ export async function GET() {
     const client = getPublicClient();
     const fromBlock = BigInt(deploymentBlock);
     const [skinLogs, burnLogs] = await Promise.all([
-      client.getContractEvents({ address, abi: voidCoinAbi, eventName: "SkinChanged", fromBlock, toBlock: "latest" }),
-      client.getContractEvents({ address, abi: voidCoinAbi, eventName: "RenameBurned", fromBlock, toBlock: "latest" }),
+      client.getContractEvents({ address, abi: voidSkinControllerAbi, eventName: "SkinChanged", fromBlock, toBlock: "latest" }),
+      client.getContractEvents({ address, abi: voidSkinControllerAbi, eventName: "RenameBurned", fromBlock, toBlock: "latest" }),
     ]);
     const blockNumbers = [...new Set([...skinLogs, ...burnLogs].flatMap((log) => log.blockNumber === null ? [] : [log.blockNumber]))];
     const blocks = await Promise.all(blockNumbers.map((blockNumber) => client.getBlock({ blockNumber })));
@@ -66,7 +47,7 @@ export async function GET() {
         burnId,
         name: log.args.name ?? "",
         symbol: log.args.symbol ?? "",
-        image: log.args.metadataURI ? await imageFromMetadata(log.args.metadataURI) : null,
+        image: log.args.metadataURI ? await imageFromTokenURI(log.args.metadataURI) : null,
         burner: log.args.burner ?? "",
         transactionHash: log.transactionHash,
         burnTransactionHash: burn?.transactionHash ?? null,

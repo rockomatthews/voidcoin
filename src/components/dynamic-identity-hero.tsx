@@ -1,8 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { BURN_INCREMENT, formatNumber } from "@/lib/site";
+import { useEffect, useState, type CSSProperties } from "react";
+import { BurnTerminal } from "@/components/burn-terminal";
+import { configuredTokenAddress } from "@/lib/contract";
+import { INITIAL_BURN_REQUIREMENT, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber } from "@/lib/site";
+import { liveIdentityFromContract, officialTokenLinks } from "@/lib/token-metadata";
 
 interface CurrentIdentity {
   name: string;
@@ -11,10 +14,21 @@ interface CurrentIdentity {
 }
 
 const genesis: CurrentIdentity = { name: "VOIDCOIN", symbol: "VOID", image: "/voidcoin-logo.png" };
+const tunnelPlanes = Array.from({ length: 12 }, (_, index) => ({
+  index,
+  style: {
+    "--tunnel-angle": `${index * 8}deg`,
+    "--tunnel-delay": `${index * -0.24}s`,
+    "--tunnel-depth": `${index * -42}px`,
+    "--tunnel-inset": `${index * 1.45}%`,
+  } as CSSProperties,
+}));
 
 export function DynamicIdentityHero() {
+  const tokenAddress = configuredTokenAddress();
+  const baseAppUrl = tokenAddress ? officialTokenLinks(tokenAddress).baseApp : null;
   const [identity, setIdentity] = useState(genesis);
-  const [nextBurn, setNextBurn] = useState(BURN_INCREMENT);
+  const [nextBurn, setNextBurn] = useState(INITIAL_BURN_REQUIREMENT);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -22,17 +36,19 @@ export function DynamicIdentityHero() {
         fetch("/api/archive", { signal: controller.signal }).then((response) => response.ok ? response.json() : null),
         fetch("/api/state", { signal: controller.signal }).then((response) => response.ok ? response.json() : null),
       ]).then(([archive, state]) => {
-        const current = archive?.identities?.[0] as CurrentIdentity | undefined;
-        if (current) setIdentity(current);
+        const archived = archive?.identities?.[0] as CurrentIdentity | undefined;
+        if (state?.name && state?.symbol) {
+          setIdentity(liveIdentityFromContract({ name: state.name, symbol: state.symbol, image: state.image ?? null }, archived));
+        }
         if (state?.nextBurnAmount) setNextBurn(state.nextBurnAmount);
       }).catch(() => undefined);
     void load();
-    const interval = window.setInterval(load, 15_000);
+    const interval = window.setInterval(load, 5_000);
     return () => { controller.abort(); window.clearInterval(interval); };
   }, []);
 
   useEffect(() => {
-    document.title = `${identity.name} ($${identity.symbol}) — The coin that changes its skin`;
+    document.title = `${identity.name} ($${identity.symbol}) — Try to control the coin that transforms`;
     const icon = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
     if (icon) icon.href = identity.image ?? "/voidcoin-logo.png";
   }, [identity]);
@@ -47,17 +63,30 @@ export function DynamicIdentityHero() {
           <span><Image src={image} alt="" width={34} height={34} unoptimized={remoteImage} /></span>
           {identity.name} <small>${identity.symbol}</small>
         </a>
-        <span className="network-mark">BASE MAINNET</span>
+        <div className="nav-actions">
+          <span className="network-mark">BASE MAINNET</span>
+          {baseAppUrl ? <a className="nav-market-link" href={baseAppUrl} target="_blank" rel="noreferrer">BUY ON BASE ↗</a> : null}
+        </div>
       </nav>
 
       <section className="void-hero" id="top" aria-labelledby="void-title">
-        <div className="void-orbit"><i aria-hidden="true" /><i aria-hidden="true" /><i aria-hidden="true" /><Image src={image} alt={`${identity.name} current token image`} width={116} height={116} priority unoptimized={remoteImage} /></div>
-        <p className="void-label">THE COIN THAT CHANGES ITS SKIN</p>
+        <div className="void-orbit">
+          <div className="void-tunnel-planes" aria-hidden="true">
+            {tunnelPlanes.map((plane) => <i key={plane.index} style={plane.style} />)}
+          </div>
+          <div className="void-tunnel-reticle" aria-hidden="true"><span /><span /></div>
+          <div className="void-logo-core">
+            <Image src={image} alt={`${identity.name} current token image`} width={164} height={164} preload unoptimized={remoteImage} />
+          </div>
+        </div>
+        <p className="void-label">TRY TO CONTROL THE COIN THAT TRANSFORMS</p>
         <h1 id="void-title"><strong>{identity.name}</strong><span>${identity.symbol}</span></h1>
-        <p className="void-message">The first identity change burns <b>{formatNumber(BURN_INCREMENT)} VOID</b>—0.1% of the original supply. The next costs 2,000,000, then 3,000,000, then 4,000,000. Every change must burn more than the one before it.</p>
-        <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} VOID</strong></div>
-        <div className="void-attributes" aria-label="Changeable token identity"><span>NAME</span><span>TICKER</span><span>PICTURE</span></div>
-        <p className="void-note">The current approved name, ticker, image, and browser title all change together. The purpose of this website does not.</p>
+        <p className="void-message">The first identity change permanently burns <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {identity.symbol}</b>. Every next record must clear both +{formatNumber(TAKEOVER_INCREMENT)} tokens and +{TAKEOVER_INCREASE_PERCENT}%. The larger increase wins.</p>
+        <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} {identity.symbol}</strong></div>
+        <details className="request-drawer hero-request-drawer">
+          <summary>REQUEST THE NEXT IDENTITY <span>+</span></summary>
+          <BurnTerminal />
+        </details>
       </section>
     </>
   );

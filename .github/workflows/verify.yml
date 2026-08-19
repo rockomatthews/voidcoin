@@ -34,9 +34,17 @@ jobs:
           python-version: "3.12"
       - run: npm ci
       - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
       - run: pip install slither-analyzer==0.11.6
       - run: solc-select install 0.8.30
       - run: solc-select use 0.8.30
       - run: forge fmt --check
       - run: forge test
+      - name: Base Mainnet fork graduation regressions
+        run: |
+          test -n "$BASE_MAINNET_RPC_URL"
+          forge test --fork-url "$BASE_MAINNET_RPC_URL" --match-contract VOIDUniswapV3MigrationForkTest -vv
+        env:
+          BASE_MAINNET_RPC_URL: ${{ secrets.BASE_MAINNET_RPC_URL }}
       - run: npm run contracts:security

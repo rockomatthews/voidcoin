@@ -10,12 +10,18 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
+    "genesis:prepare": "node scripts/prepare-genesis.mjs",
+    "genesis:predict": "node --env-file=.env.local scripts/predict-deployment.mjs",
+    "genesis:publish": "node --env-file=.env.local scripts/publish-genesis.mjs",
+    "genesis:zora:publish": "node --env-file=.env.local scripts/publish-zora-genesis.mjs",
+    "genesis:verify": "node --env-file=.env.local scripts/verify-genesis.mjs",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts -vvv",
     "contracts:security": "./scripts/security-check.sh",
     "verify": "npm run lint && npm test && npm run build"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.3.7",
     "@neondatabase/serverless": "^1.0.2",
     "@openzeppelin/contracts": "^5.4.0",
     "@react-email/components": "^1.0.8",

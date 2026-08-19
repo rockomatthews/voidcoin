@@ -1,12 +1,22 @@
 import { base } from "viem/chains";
 
-export const voidCoinAbi = [
+export const MAINNET_VOIDCOIN_ADDRESS = "0xF6508F41851E1E956113b31571E67A315D0832A4" as const;
+export const MAINNET_ZORA_VOID_ADDRESS = "0x4A64F213558Fb0188e3FC48918948EC590A66733" as const;
+export const MAINNET_VOID_CURVE_ADDRESS = "0x5963228022a745f1F0DE3ce82001774968982924" as const;
+export const BASE_WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as const;
+export const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+export const BASE_UNISWAP_V3_QUOTER_V2 = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a" as const;
+export const WETH_USDC_POOL_FEE = 500;
+export const VOID_USDC_POOL_FEE = 10_000;
+
+export const voidSkinControllerAbi = [
   {
     type: "function",
     name: "burnForRename",
     stateMutability: "nonpayable",
     inputs: [
-      { name: "expectedAmount", type: "uint256" },
+      { name: "expectedBurnId", type: "uint256" },
+      { name: "burnAmount", type: "uint256" },
       { name: "commitment", type: "bytes32" },
     ],
     outputs: [],
@@ -15,7 +25,10 @@ export const voidCoinAbi = [
     type: "function",
     name: "replaceCommitment",
     stateMutability: "nonpayable",
-    inputs: [{ name: "newCommitment", type: "bytes32" }],
+    inputs: [
+      { name: "expectedBurnId", type: "uint256" },
+      { name: "newCommitment", type: "bytes32" },
+    ],
     outputs: [],
   },
   {
@@ -32,16 +45,21 @@ export const voidCoinAbi = [
     ],
     outputs: [],
   },
+  {
+    type: "function",
+    name: "lockRenameSlot",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "burnId", type: "uint256" }],
+    outputs: [],
+  },
   { type: "function", name: "currentBurnId", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "nextBurnId", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "recordBurn", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "recordBurner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   { type: "function", name: "nextBurnRequirement", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "maximumBurnAmount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "destroyedSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", name: "tokenURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "contestBurned", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "renamePaused", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   {
     type: "function",
@@ -57,6 +75,7 @@ export const voidCoinAbi = [
           { name: "burnAmount", type: "uint256" },
           { name: "commitment", type: "bytes32" },
           { name: "openedAt", type: "uint64" },
+          { name: "lockedUntil", type: "uint64" },
         ],
       },
     ],
@@ -93,7 +112,57 @@ export const voidCoinAbi = [
       { name: "imageHash", type: "bytes32", indexed: false },
     ],
   },
+] as const;
+
+export const zoraContentCoinAbi = [
+  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "tokenURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
+] as const;
+
+// Historical V1/V2 modules still import this name. New production code must use
+// voidSkinControllerAbi and zoraContentCoinAbi explicitly.
+export const voidCoinAbi = voidSkinControllerAbi;
+
+export const voidBondingCurveAbi = [
+  { type: "function", name: "buy", stateMutability: "payable", inputs: [{ name: "minimumTokensOut", type: "uint256" }, { name: "deadline", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
+  { type: "function", name: "quoteBuy", stateMutability: "view", inputs: [{ name: "ethIn", type: "uint256" }], outputs: [{ name: "tokensOut", type: "uint256" }] },
+  { type: "function", name: "maxBuyAmount", stateMutability: "view", inputs: [], outputs: [{ name: "amount", type: "uint256" }] },
+  { type: "function", name: "ethReserve", stateMutability: "view", inputs: [], outputs: [{ name: "amount", type: "uint256" }] },
+  { type: "function", name: "graduationThreshold", stateMutability: "view", inputs: [], outputs: [{ name: "amount", type: "uint256" }] },
+  { type: "function", name: "graduated", stateMutability: "view", inputs: [], outputs: [{ name: "value", type: "bool" }] },
+] as const;
+
+export const voidV2BuyRouterAbi = [
+  {
+    type: "function",
+    name: "buyWithETH",
+    stateMutability: "payable",
+    inputs: [{ name: "minimumTokensOut", type: "uint256" }],
+    outputs: [{ name: "tokensOut", type: "uint256" }],
+  },
+] as const;
+
+export const uniswapQuoterV2Abi = [
+  {
+    type: "function",
+    name: "quoteExactInput",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "path", type: "bytes" },
+      { name: "amountIn", type: "uint256" },
+    ],
+    outputs: [
+      { name: "amountOut", type: "uint256" },
+      { name: "sqrtPriceX96AfterList", type: "uint160[]" },
+      { name: "initializedTicksCrossedList", type: "uint32[]" },
+      { name: "gasEstimate", type: "uint256" },
+    ],
+  },
 ] as const;
 
 export function configuredChainId() {
@@ -105,6 +174,33 @@ export function configuredChain() {
 }
 
 export function configuredContractAddress() {
-  const address = process.env.NEXT_PUBLIC_VOIDCOIN_ADDRESS;
+  return configuredTokenAddress();
+}
+
+export function configuredTokenAddress() {
+  const address = process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_ZORA_VOID_ADDRESS;
+}
+
+export function configuredControllerAddress() {
+  const address = process.env.NEXT_PUBLIC_VOID_SKIN_CONTROLLER_ADDRESS;
   return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+}
+
+export function configuredV2BuyRouterAddress() {
+  const address = process.env.NEXT_PUBLIC_VOID_V2_BUY_ROUTER_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+}
+
+export function configuredMarketVersion() {
+  return configuredTokenAddress() ? "zora" : "preview";
+}
+
+export function zoraTradeUrl(address = configuredTokenAddress()) {
+  return address ? `https://zora.co/coin/base%3A${address}` : null;
+}
+
+export function configuredCurveAddress() {
+  const address = process.env.NEXT_PUBLIC_BONDING_CURVE_ADDRESS ?? process.env.NEXT_PUBLIC_VOID_CURVE_ADDRESS;
+  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_VOID_CURVE_ADDRESS;
 }

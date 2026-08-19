@@ -1,0 +1,14 @@
+{
+  "name": "voidcoin-zora-launch-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "calldata": "node prepare.mjs"
+  },
+  "dependencies": {
+    "viem": "2.55.18"
+  },
+  "overrides": {
+    "ws": "8.21.3"
+  }
+}

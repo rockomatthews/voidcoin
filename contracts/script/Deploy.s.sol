@@ -2,29 +2,56 @@
 pragma solidity 0.8.30;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {VestingWallet} from "@openzeppelin/contracts/finance/VestingWallet.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {VOIDCoin} from "../src/VOIDCoin.sol";
 import {VOIDLaunch} from "../src/VOIDLaunch.sol";
 import {VOIDBondingCurve} from "../src/VOIDBondingCurve.sol";
+import {VOIDTreasuryVesting} from "../src/VOIDTreasuryVesting.sol";
+import {VOIDUniswapV3Migration, IVOIDUniswapV3PositionManager} from "../src/VOIDUniswapV3Migration.sol";
+import {VOIDPositionLocker} from "../src/VOIDPositionLocker.sol";
+import {VOIDGraduationExecutor, IVOIDGraduationCurve, IVOIDGraduationRouter} from "../src/VOIDGraduationExecutor.sol";
 
 contract DeployVOIDCoin is Script {
-    function run() external returns (VOIDCoin token, VestingWallet vestingWallet) {
-        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+    address internal constant BASE_UNISWAP_V3_POSITION_MANAGER = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
+    address internal constant BASE_UNISWAP_V3_SWAP_ROUTER_02 = 0x2626664c2603336E57B271c5C0b26F421741e481;
+    uint256 internal constant VIRTUAL_ETH_RESERVE = 100 ether;
+    uint256 internal constant GRADUATION_THRESHOLD = 25 ether;
+
+    function run() external returns (VOIDCoin token, VOIDTreasuryVesting vestingWallet) {
         address safe = vm.envAddress("SAFE_ADDRESS");
-        address migrationTarget = vm.envAddress("MIGRATION_TARGET");
-        uint256 virtualEthReserve = vm.envUint("VIRTUAL_ETH_RESERVE");
-        uint256 graduationThreshold = vm.envUint("GRADUATION_THRESHOLD");
         string memory initialTokenURI = vm.envOr("INITIAL_TOKEN_URI", string(""));
 
         require(safe.code.length > 0, "SAFE_ADDRESS must be a deployed Base Mainnet contract");
-        require(migrationTarget.code.length > 0, "MIGRATION_TARGET must be a deployed Base Mainnet contract");
-        require(virtualEthReserve > 0, "VIRTUAL_ETH_RESERVE must be nonzero");
-        require(graduationThreshold > 0, "GRADUATION_THRESHOLD must be nonzero");
+        require(block.chainid == 8453, "Base Mainnet only");
+        require(
+            BASE_UNISWAP_V3_POSITION_MANAGER.code.length > 0, "Official Base Uniswap v3 position manager is unavailable"
+        );
+        require(BASE_UNISWAP_V3_SWAP_ROUTER_02.code.length > 0, "Official Base Uniswap v3 router is unavailable");
+        (bool acceptsPositions, bytes memory receiverResult) =
+            safe.staticcall(abi.encodeCall(IERC721Receiver.onERC721Received, (safe, safe, 0, "")));
+        require(
+            acceptsPositions && receiverResult.length >= 32
+                && abi.decode(receiverResult, (bytes4)) == IERC721Receiver.onERC721Received.selector,
+            "SAFE_ADDRESS must accept Uniswap v3 position NFTs"
+        );
         require(bytes(initialTokenURI).length > 0, "INITIAL_TOKEN_URI must be permanent metadata");
 
-        vm.startBroadcast(deployerKey);
-        VOIDLaunch launch =
-            new VOIDLaunch(safe, migrationTarget, virtualEthReserve, graduationThreshold, initialTokenURI);
+        vm.startBroadcast();
+        VOIDUniswapV3Migration migrationTarget =
+            new VOIDUniswapV3Migration(IVOIDUniswapV3PositionManager(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
+        VOIDPositionLocker positionLocker = new VOIDPositionLocker(IERC721(BASE_UNISWAP_V3_POSITION_MANAGER), safe);
+        VOIDLaunch launch = new VOIDLaunch(
+            safe,
+            address(migrationTarget),
+            address(positionLocker),
+            VIRTUAL_ETH_RESERVE,
+            GRADUATION_THRESHOLD,
+            initialTokenURI
+        );
+        VOIDGraduationExecutor graduationExecutor = new VOIDGraduationExecutor(
+            IVOIDGraduationCurve(address(launch.bondingCurve())), IVOIDGraduationRouter(BASE_UNISWAP_V3_SWAP_ROUTER_02)
+        );
         vm.stopBroadcast();
 
         token = launch.token();
@@ -34,10 +61,16 @@ contract DeployVOIDCoin is Script {
         console2.log("Treasury vesting wallet:", address(vestingWallet));
         VOIDBondingCurve curve = launch.bondingCurve();
         console2.log("Continuous bonding curve:", address(curve));
-        console2.log("Migration target:", migrationTarget);
-        console2.log("Virtual ETH reserve:", virtualEthReserve);
-        console2.log("Graduation threshold:", graduationThreshold);
-        console2.log("Pending Safe owner:", safe);
+        console2.log("Uniswap v3 migration target:", address(migrationTarget));
+        console2.log("Uniswap v3 position manager:", BASE_UNISWAP_V3_POSITION_MANAGER);
+        console2.log("Uniswap v3 SwapRouter02:", BASE_UNISWAP_V3_SWAP_ROUTER_02);
+        console2.log("Atomic graduation executor:", address(graduationExecutor));
+        console2.log("Uniswap v3 pool fee:", migrationTarget.POOL_FEE());
+        console2.log("12-month position locker:", address(positionLocker));
+        console2.log("Position unlock duration:", positionLocker.LOCK_DURATION());
+        console2.log("Virtual ETH reserve:", VIRTUAL_ETH_RESERVE);
+        console2.log("Graduation threshold:", GRADUATION_THRESHOLD);
+        console2.log("Token owner Safe:", token.owner());
         console2.log("Competitive renaming paused:", token.renamePaused());
     }
 }
