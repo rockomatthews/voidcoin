@@ -13,6 +13,9 @@ Delivery branch: `codex/o1-v4`
 
 Frozen production commit: `c7ac786625a92b4c626a5cbfc15816dd2d9a16d1`
 
+The Rev 2 report has been received. Contract bytecode remains frozen at the commit above; website and launch-gate
+remediations are documented in `docs/audits/b20-v4/REV2_REMEDIATION.md` on the delivery branch.
+
 ## Requested auditor deliverable
 
 Please return a written report that:
@@ -96,7 +99,7 @@ Website read-path integration, not contract authority:
 
 - Chain: Base Mainnet, chain ID `8453`
 - Production Safe: `0x30cA25b5de6d9d8eD6Df5a2392211d1F10b266b9`
-- Canonical B20 factory: `0xB20f0000000000000000000000000000000000F0`
+- Canonical B20 factory: `0xB20f000000000000000000000000000000000000`
 - Base dependency: `base/base-std` commit `fc13edf179415af235933953fb4537e263c8d1db`
 - Solidity compiler: `0.8.30`
 

@@ -1,0 +1,20 @@
+{
+  "capturedAt": "2026-08-20T23:33:57Z",
+  "chainId": 8453,
+  "tokenAddress": "0xb2000000000000000000000ee9988edd75453501",
+  "contractURI": "ipfs://bafkreickdsr5al6bxh247jl55k5ftx36ap6gpscbpr633exoy3qmsfcrnq",
+  "gateway": "https://ipfs.io/ipfs/bafkreickdsr5al6bxh247jl55k5ftx36ap6gpscbpr633exoy3qmsfcrnq",
+  "responseSha256": "4a1ca3d02fc1b9f5cfa57deaba59df7e03fc67c8417c7dbd92eec6e0c914516c",
+  "response": {
+    "name": "The Base Cat",
+    "symbol": "PAMPU",
+    "description": "Meet $PAMPU — the cutest cat on Base B20. Built for memes, powered by the community, and ready to spread positive vibes across Base. Every great movement starts small, and this is just the beginning. 🐾",
+    "standard": "B20",
+    "launchpad": "o1 Launchpad",
+    "launchpadUrl": "https://launch.o1.exchange",
+    "image": "ipfs://bafybeihrqgcevzwg7jbfwmr2j36urhlun535rub4asblonx4spxaluswva",
+    "links": {
+      "website": "https://x.com/professorcornel?s=11"
+    }
+  }
+}

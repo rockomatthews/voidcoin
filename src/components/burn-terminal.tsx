@@ -4,11 +4,20 @@ import { useEffect, useState, type FormEvent } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useChainId, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { WalletButton } from "@/components/wallet-button";
-import { configuredChainId, configuredControllerAddress, configuredMarketVersion, configuredTokenAddress, voidSkinControllerAbi, voidTokenAbi } from "@/lib/contract";
-import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber, nextTakeoverRequirement } from "@/lib/site";
+import { configuredChainId, configuredControllerAddress, configuredTokenAddress, voidSkinControllerAbi, voidTokenAbi } from "@/lib/contract";
+import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
-type PendingAuthorization = { id: string; wallet: string; burnId: string; commitment: `0x${string}`; proposedName: string; proposedSymbol: string };
+type PendingAuthorization = { id: string; wallet: string; burnId: string; burnAmount: string; commitment: `0x${string}`; submissionMode: "burn" | "replace"; proposedName: string; proposedSymbol: string };
+
+function storedRequestIds() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem("voidcoin-request-ids") ?? "[]");
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && /^[0-9a-f-]{36}$/i.test(item)).slice(0, 10) : [];
+  } catch {
+    return [];
+  }
+}
 
 export function BurnTerminal() {
   const { address, isConnected } = useAccount();
@@ -16,7 +25,6 @@ export function BurnTerminal() {
   const targetChainId = configuredChainId();
   const tokenAddress = configuredTokenAddress();
   const controllerAddress = configuredControllerAddress();
-  const marketVersion = configuredMarketVersion();
   const publicClient = usePublicClient({ chainId: targetChainId });
   const { switchChainAsync } = useSwitchChain();
   const { signMessageAsync } = useSignMessage();
@@ -62,14 +70,20 @@ export function BurnTerminal() {
   useEffect(() => {
     if (!address) return;
     const controller = new AbortController();
-    fetch(`/api/requests?wallet=${encodeURIComponent(address)}`, { signal: controller.signal })
+    const load = () => {
+      const ids = storedRequestIds();
+      if (ids.length === 0) return Promise.resolve();
+      return fetch(`/api/requests?wallet=${encodeURIComponent(address)}&ids=${encodeURIComponent(ids.join(","))}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("requests unavailable")))
-      .then((result: { requests?: Array<{ id: string; status: string; burnId: string; commitment: `0x${string}`; metadataURI: string | null; proposedName: string; proposedSymbol: string }> }) => {
-        const pending = result.requests?.find((item) => item.status === "changes_requested" && item.metadataURI);
-        setPendingAuthorization(pending ? { id: pending.id, wallet: address, burnId: pending.burnId, commitment: pending.commitment, proposedName: pending.proposedName, proposedSymbol: pending.proposedSymbol } : null);
+      .then((result: { requests?: Array<{ id: string; status: string; submissionMode: "burn" | "replace"; burnId: string; burnAmount: string; commitment: `0x${string}` | null; metadataURI: string | null; proposedName: string; proposedSymbol: string }> }) => {
+        const pending = result.requests?.find((item) => item.status === "awaiting_burn" && item.metadataURI && item.commitment);
+        setPendingAuthorization(pending?.commitment ? { id: pending.id, wallet: address, burnId: pending.burnId, burnAmount: pending.burnAmount, commitment: pending.commitment, submissionMode: pending.submissionMode, proposedName: pending.proposedName, proposedSymbol: pending.proposedSymbol } : null);
       })
       .catch(() => undefined);
-    return () => controller.abort();
+    };
+    void load();
+    const interval = window.setInterval(load, 10_000);
+    return () => { controller.abort(); window.clearInterval(interval); };
   }, [address]);
 
   useEffect(() => {
@@ -110,41 +124,12 @@ export function BurnTerminal() {
       const prepared = await requestResponse.json();
       if (!requestResponse.ok) throw new Error(prepared.error ?? "Could not prepare proposal");
 
-      setPhase("burning");
-      const isReplacement = prepared.mode === "replace";
-      const burnAmountWei = BigInt(prepared.burnAmount);
-      if (!isReplacement) {
-        const allowance = await publicClient.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "allowance", args: [address, controllerAddress] });
-        if (allowance < burnAmountWei) {
-          setMessage(`Approve the transformation controller to use exactly ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}. This approval does not burn yet.`);
-          const approvalHash = await writeContractAsync({ address: tokenAddress, abi: voidTokenAbi, functionName: "approve", args: [controllerAddress, burnAmountWei], chainId: targetChainId });
-          await publicClient.waitForTransactionReceipt({ hash: approvalHash });
-        }
-      }
-      const burnKind = marketVersion === "b20" ? "native B20" : "Zora token";
-      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent ${burnKind} burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}.`);
-      const transactionHash = isReplacement
-        ? await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [BigInt(prepared.burnId), prepared.commitment], chainId: targetChainId })
-        : await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "burnForRename", args: [BigInt(prepared.burnId), burnAmountWei, prepared.commitment], chainId: targetChainId });
-
-      setPhase("confirming");
-      setMessage("Burn submitted. Waiting for Base confirmation and moderation intake.");
-      await publicClient.waitForTransactionReceipt({ hash: transactionHash });
-      const confirmResponse = await fetch(`/api/requests/${prepared.requestId}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash, mode: prepared.mode }) });
-      const confirmed = await confirmResponse.json();
-      if (!confirmResponse.ok) throw new Error(confirmed.error ?? "The burn confirmed but intake verification needs attention");
-
       setPhase("complete");
-      setMessage(isReplacement ? "Replacement verified. The moderator has the new private submission." : "Burn verified. The moderator has been notified. A higher burn can take control before approval.");
+      const stored = storedRequestIds();
+      const nextIds = [...new Set([prepared.requestId, ...stored])].slice(0, 10);
+      window.localStorage.setItem("voidcoin-request-ids", JSON.stringify(nextIds));
+      setMessage("Proposal stored privately for moderation. No approval or burn has occurred. When the final IPFS metadata is approved and pinned, this page will offer the exact executable commitment.");
       formElement.reset();
-      if (!isReplacement) {
-        const spent = Number(burnAmountWei / 10n ** 18n);
-        const nextMinimum = nextTakeoverRequirement(spent);
-        setRequiredBurn(nextMinimum);
-        setMaximumBurn(nextMinimum + MAX_STRATEGIC_PREMIUM);
-        setBurnAmount(String(nextMinimum));
-        setBalanceState((current) => current === null ? null : { ...current, value: Math.max(0, current.value - spent) });
-      }
       setAccepted(false);
     } catch (error) {
       setPhase("error");
@@ -152,24 +137,39 @@ export function BurnTerminal() {
     }
   }
 
-  async function authorizeApprovedMetadata() {
+  async function executeApprovedProposal() {
     if (!authorization || !controllerAddress || !publicClient) return;
     try {
       if (chainId !== targetChainId) await switchChainAsync({ chainId: targetChainId });
       setPhase("burning");
-      setMessage("Authorize the moderator-approved IPFS metadata. This does not burn additional VOID.");
-      const transactionHash = await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [BigInt(authorization.burnId), authorization.commitment], chainId: targetChainId });
+      const burnAmountWei = BigInt(authorization.burnAmount);
+      if (authorization.submissionMode === "burn") {
+        const allowance = await publicClient.readContract({ address: tokenAddress!, abi: voidTokenAbi, functionName: "allowance", args: [address!, controllerAddress] });
+        if (allowance < burnAmountWei) {
+          setMessage(`Approve exactly ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}. The final metadata is already pinned; approval alone does not burn.`);
+          const approvalHash = await writeContractAsync({ address: tokenAddress!, abi: voidTokenAbi, functionName: "approve", args: [controllerAddress, burnAmountWei], chainId: targetChainId });
+          const approvalReceipt = await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+          if (approvalReceipt.status !== "success") throw new Error("Token approval reverted on Base");
+        }
+        setMessage(`Confirm the permanent native B20 burn. The final metadata is already approved and pinned. The Safe must finalize within 72 hours.`);
+      } else {
+        setMessage("Confirm the pre-approved replacement commitment. No additional burn is required.");
+      }
+      const transactionHash = authorization.submissionMode === "replace"
+        ? await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [BigInt(authorization.burnId), authorization.commitment], chainId: targetChainId })
+        : await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "burnForRename", args: [BigInt(authorization.burnId), burnAmountWei, authorization.commitment], chainId: targetChainId });
       setPhase("confirming");
-      await publicClient.waitForTransactionReceipt({ hash: transactionHash });
-      const response = await fetch(`/api/requests/${authorization.id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash, mode: "replace" }) });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+      if (receipt.status !== "success") throw new Error("The approved commitment reverted on Base");
+      const response = await fetch(`/api/requests/${authorization.id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash, mode: authorization.submissionMode }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Final metadata authorization could not be verified");
       setPendingAuthorization(null);
       setPhase("complete");
-      setMessage("Final metadata authorized. The moderator can now prepare the Safe approval.");
+      setMessage("Approved commitment verified. The moderator can now prepare the Safe batch; the onchain window closes 72 hours after this transaction.");
     } catch (error) {
       setPhase("error");
-      setMessage(error instanceof Error ? error.message : "Final metadata authorization failed");
+      setMessage(error instanceof Error ? error.message : "Approved commitment execution failed");
     }
   }
 
@@ -229,12 +229,12 @@ export function BurnTerminal() {
       </div>
       <label className="burn-warning">
         <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
-        <span><strong>THE BURN CANNOT BE REFUNDED.</strong> Rejection, a failed submission, or another wallet setting the next higher burn does not restore your tokens.</span>
+        <span><strong>SUBMISSION DOES NOT BURN.</strong> If moderation approves and pins the final metadata, you will review a separate permanent burn transaction. Once executed, that burn cannot be refunded and the Safe has 72 hours to finalize it.</span>
       </label>
       <div className={`terminal-status phase-${phase}`} aria-live="polite"><span />{message}</div>
-      {authorization ? <button className="primary-action" type="button" onClick={authorizeApprovedMetadata} disabled={phase === "burning" || phase === "confirming"}>AUTHORIZE APPROVED {authorization.proposedName} / ${authorization.proposedSymbol}</button> : null}
+      {authorization ? <button className="primary-action" type="button" onClick={executeApprovedProposal} disabled={phase === "burning" || phase === "confirming"}>{authorization.submissionMode === "burn" ? "BURN FOR" : "AUTHORIZE"} APPROVED {authorization.proposedName} / ${authorization.proposedSymbol}</button> : null}
       <button className="primary-action" type="submit" disabled={Boolean(disabledReason) || phase === "burning" || phase === "confirming" || phase === "preparing" || phase === "signing"} title={disabledReason ?? undefined}>
-        {ownsActiveSlot ? "SUBMIT REPLACEMENT" : `BURN ${Number.isFinite(burnAmountNumber) ? formatNumber(burnAmountNumber) : "—"} ${tokenSymbol} + SUBMIT`}
+        SUBMIT FOR MODERATION — NO BURN
       </button>
     </form>
   );

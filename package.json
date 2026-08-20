@@ -18,11 +18,12 @@
     "b20:predict": "node --env-file=.env.local scripts/predict-b20-v4.mjs",
     "b20:publish": "node --env-file=.env.local scripts/publish-b20-genesis.mjs",
     "b20:verify": "node --env-file=.env.local scripts/verify-b20-genesis.mjs",
-    "b20:surface:verify": "node scripts/verify-b20-surface-readiness.mjs",
+    "b20:surface:verify": "node --env-file=.env.local scripts/verify-b20-surface-readiness.mjs",
+    "b20:surface:test": "node scripts/surface-readiness-harness.mjs",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts -vvv",
     "contracts:security": "./scripts/security-check.sh",
-    "verify": "npm run lint && npm test && npm run build"
+    "verify": "npm run lint && npm test && npm run b20:surface:test && npm run build"
   },
   "dependencies": {
     "@coinbase/wallet-sdk": "^4.3.7",
@@ -36,7 +37,6 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "resend": "^6.9.0",
-    "sharp": "^0.35.3",
     "viem": "^2.55.13",
     "wagmi": "^3.7.6",
     "zod": "^4.1.0"
@@ -48,9 +48,13 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "blockstore-core": "^7.0.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.0.0",
+    "ipfs-unixfs-importer": "^17.0.1",
+    "multiformats": "^14.0.5",
+    "sharp": "^0.35.3",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   },

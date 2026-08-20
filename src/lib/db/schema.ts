@@ -25,7 +25,8 @@ export const renameRequests = pgTable(
     imageWidth: integer("image_width").notNull(),
     imageHeight: integer("image_height").notNull(),
     salt: text("salt").notNull(),
-    commitment: text("commitment").notNull(),
+    commitment: text("commitment"),
+    submissionMode: text("submission_mode").notNull().default("burn"),
     transactionHash: text("transaction_hash"),
     status: requestStatus("status").notNull().default("awaiting_burn"),
     moderatorNote: text("moderator_note"),
@@ -51,7 +52,7 @@ export const proposalSubmissions = pgTable("proposal_submissions", {
   proposedSymbol: text("proposed_symbol").notNull(),
   imageBlobUrl: text("image_blob_url").notNull(),
   imageHash: text("image_hash").notNull(),
-  commitment: text("commitment").notNull(),
+  commitment: text("commitment"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("proposal_submissions_request_idx").on(table.requestId)]);
 

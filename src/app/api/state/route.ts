@@ -47,7 +47,7 @@ export async function GET() {
       }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15" } });
     }
 
-    const [name, symbol, supply, burned, paused, ready, slot, uri, record, nextRequirement, maximumBurn, recordHolder] = await Promise.all([
+    const [name, symbol, supply, burned, paused, ready, slot, uri, record, nextRequirement, maximumBurn, recordHolder, controllerToken] = await Promise.all([
       client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "name" }),
       client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "symbol" }),
       client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "totalSupply" }),
@@ -62,7 +62,11 @@ export async function GET() {
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "nextBurnRequirement" }),
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "maximumBurnAmount" }),
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "recordBurner" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "token" }),
     ]);
+    if (controllerToken.toLowerCase() !== tokenAddress.toLowerCase()) {
+      return Response.json({ error: "Configured controller does not govern the configured B20 token" }, { status: 503 });
+    }
     const image = await imageFromTokenURI(uri);
     return Response.json({
       mode: marketVersion,

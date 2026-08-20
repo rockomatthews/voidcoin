@@ -29,7 +29,9 @@ describe("token identity metadata", () => {
     });
     expect(metadata.description).toContain("https://voidcoin.fun remains permanent");
     expect(metadata.properties.dexScreener).toBe(`https://dexscreener.com/base/${address}`);
-    expect(metadata.links).toEqual({ website: "https://voidcoin.fun" });
+    expect(metadata.links.website).toBe("https://voidcoin.fun");
+    expect(metadata.market_links).toHaveLength(6);
+    expect(metadata.market_links).toContainEqual({ type: "fomo", label: "Fomo", url: `https://fomo.family/tokens/base/${address}` });
   });
 
   it("builds Base App and Fomo token routes from the immutable contract address", () => {

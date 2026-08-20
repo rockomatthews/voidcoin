@@ -61,7 +61,7 @@ function when(timestamp: number | null) {
 export function ProtocolStats() {
   const contractAddress = configuredTokenAddress();
   const marketVersion = configuredMarketVersion();
-  const zoraUrl = zoraTradeUrl(contractAddress);
+  const zoraUrl = zoraTradeUrl();
   const links = contractAddress ? officialTokenLinks(contractAddress) : null;
   const [state, setState] = useState(previewState);
   const [market, setMarket] = useState(previewMarket);

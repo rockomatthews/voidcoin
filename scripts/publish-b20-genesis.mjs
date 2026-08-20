@@ -11,6 +11,14 @@ const fomo = `https://fomo.family/tokens/base/${prediction.token}`;
 const dexScreener = `https://dexscreener.com/base/${prediction.token}`;
 const explorer = `https://basescan.org/token/${prediction.token}`;
 const uniswap = `https://app.uniswap.org/explore/tokens/base/${prediction.token}`;
+const marketLinks = [
+  { type: "website", label: "Website", url: website },
+  { type: "base", label: "Base App", url: baseApp },
+  { type: "fomo", label: "Fomo", url: fomo },
+  { type: "uniswap", label: "Uniswap", url: uniswap },
+  { type: "dexscreener", label: "DEX Screener", url: dexScreener },
+  { type: "explorer", label: "Contract", url: explorer },
+];
 const directory = path.resolve("assets/genesis");
 
 const imageBytes = await readFile(path.join(directory, "voidcoin.png"));
@@ -42,13 +50,16 @@ const metadata = {
   website,
   chain_id: 8453,
   contract_address: prediction.token,
-  token_standard: "B20 Asset",
-  links: { website },
+  token_standard: "B20",
+  // Basecat/PAMPU exposes links.website. Keep the richer typed routes as well.
+  // Captured source: docs/research/basecat-b20-metadata.json.
+  links: { website, baseApp, fomo, uniswap, dexScreener, explorer },
+  market_links: marketLinks,
   properties: {
     network: "Base Mainnet",
     chainId: 8453,
     contractAddress: prediction.token,
-    standard: "B20 Asset / ERC-20 / ERC-7572",
+    standard: "B20",
     website,
     baseApp,
     fomo,

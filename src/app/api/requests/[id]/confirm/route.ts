@@ -14,6 +14,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const [proposal] = await getDb().select().from(renameRequests).where(eq(renameRequests.id, id)).limit(1);
   if (!proposal) return Response.json({ error: "Request not found" }, { status: 404 });
+  if (proposal.status !== "awaiting_burn") return Response.json({ error: "This request is not approved for execution" }, { status: 409 });
+  if (!proposal.commitment || !proposal.metadataURI) return Response.json({ error: "Approved metadata and its final commitment are missing" }, { status: 409 });
+  if (body.mode !== proposal.submissionMode) return Response.json({ error: "Transaction mode does not match this approved request" }, { status: 400 });
   const contractAddress = configuredControllerAddress();
   if (!contractAddress) return Response.json({ error: "Contract is not configured" }, { status: 503 });
 
@@ -39,7 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (event.eventName === "RenameBurned") {
       await getDb().update(renameRequests).set({ status: "superseded", updatedAt: new Date() }).where(and(
         ne(renameRequests.id, id),
-        inArray(renameRequests.status, ["pending_review", "changes_requested", "ready_for_safe"]),
+        inArray(renameRequests.status, ["draft", "awaiting_burn", "pending_review", "changes_requested", "ready_for_safe"]),
       ));
     }
     await getDb().update(renameRequests).set({ transactionHash: body.transactionHash, status: "pending_review", updatedAt: new Date() }).where(eq(renameRequests.id, id));

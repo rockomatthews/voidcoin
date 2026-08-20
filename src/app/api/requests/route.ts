@@ -1,26 +1,28 @@
 import { randomBytes } from "node:crypto";
 import { put } from "@vercel/blob";
-import { and, eq } from "drizzle-orm";
-import { verifyMessage, zeroHash, type Address, type Hex } from "viem";
-import { configuredChainId, configuredControllerAddress, voidSkinControllerAbi } from "@/lib/contract";
+import { and, eq, inArray } from "drizzle-orm";
+import { isAddress, verifyMessage, type Address, type Hex } from "viem";
+import { configuredControllerAddress, configuredTokenAddress, voidSkinControllerAbi } from "@/lib/contract";
 import { verifyWalletChallenge } from "@/lib/auth";
 import { getPublicClient } from "@/lib/chain";
 import { getDb, hasDatabase } from "@/lib/db";
 import { proposalSubmissions, renameRequests } from "@/lib/db/schema";
 import { sanitizeImage } from "@/lib/image";
-import { createCommitment, parseStrategicBurn, proposalSchema } from "@/lib/proposal";
+import { parseStrategicBurn, proposalSchema } from "@/lib/proposal";
 
 export async function GET(request: Request) {
   if (!hasDatabase()) return Response.json({ requests: [] });
   const wallet = new URL(request.url).searchParams.get("wallet")?.toLowerCase();
-  if (!wallet) return Response.json({ error: "Wallet is required" }, { status: 400 });
-  const rows = await getDb().select({ id: renameRequests.id, status: renameRequests.status, proposedName: renameRequests.proposedName, proposedSymbol: renameRequests.proposedSymbol, moderatorNote: renameRequests.moderatorNote, burnAmount: renameRequests.burnAmount, burnId: renameRequests.burnId, commitment: renameRequests.commitment, metadataURI: renameRequests.metadataURI }).from(renameRequests).where(eq(renameRequests.wallet, wallet));
+  const ids = new URL(request.url).searchParams.get("ids")?.split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 10) ?? [];
+  if (!wallet || !isAddress(wallet) || ids.length === 0) return Response.json({ requests: [] });
+  const rows = await getDb().select({ id: renameRequests.id, status: renameRequests.status, submissionMode: renameRequests.submissionMode, proposedName: renameRequests.proposedName, proposedSymbol: renameRequests.proposedSymbol, moderatorNote: renameRequests.moderatorNote, burnAmount: renameRequests.burnAmount, burnId: renameRequests.burnId, commitment: renameRequests.commitment, metadataURI: renameRequests.metadataURI }).from(renameRequests).where(and(eq(renameRequests.wallet, wallet), inArray(renameRequests.id, ids)));
   return Response.json({ requests: rows.map((row) => ({ ...row, burnId: row.burnId.toString(), burnAmount: row.burnAmount.toString() })) });
 }
 
 export async function POST(request: Request) {
   const contractAddress = configuredControllerAddress();
-  if (!contractAddress || !hasDatabase() || !process.env.BLOB_READ_WRITE_TOKEN) {
+  const tokenAddress = configuredTokenAddress();
+  if (!contractAddress || !tokenAddress || !hasDatabase() || !process.env.BLOB_READ_WRITE_TOKEN) {
     return Response.json({ error: "Rename intake is not active until the Base Mainnet contract, Neon, and private Blob store are configured." }, { status: 503 });
   }
 
@@ -49,12 +51,14 @@ export async function POST(request: Request) {
   try {
     const sanitized = await sanitizeImage(image);
     const client = getPublicClient();
-    const [nextBurnId, nextBurnRequirement, maximumBurnAmount, slot] = await Promise.all([
+    const [nextBurnId, nextBurnRequirement, maximumBurnAmount, slot, controllerToken] = await Promise.all([
       client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "nextBurnId" }),
       client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "nextBurnRequirement" }),
       client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "maximumBurnAmount" }),
       client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "activeSlot" }),
+      client.readContract({ address: contractAddress, abi: voidSkinControllerAbi, functionName: "token" }),
     ]);
+    if (controllerToken.toLowerCase() !== tokenAddress.toLowerCase()) throw new Error("Configured controller does not govern the configured B20 token");
     const isActive = slot.burner !== "0x0000000000000000000000000000000000000000";
     const isReplacement = isActive && slot.burner.toLowerCase() === wallet.toLowerCase();
 
@@ -64,7 +68,6 @@ export async function POST(request: Request) {
       ? slot.burnAmount
       : parseStrategicBurn(requestedBurn, nextBurnRequirement, maximumBurnAmount);
     const salt = `0x${randomBytes(32).toString("hex")}` as Hex;
-    const commitment = createCommitment({ chainId: configuredChainId(), contractAddress, burnId, burner: wallet, burnAmount, name: parsed.data.name, symbol: parsed.data.symbol, imageHash: sanitized.hash, metadataURIHash: zeroHash, salt });
     const blob = await put(`requests/${wallet.toLowerCase()}/${burnId}.${sanitized.extension}`, sanitized.bytes, { access: "private", contentType: sanitized.contentType, addRandomSuffix: true, cacheControlMaxAge: 60 });
     const values = {
       wallet: wallet.toLowerCase(),
@@ -77,8 +80,9 @@ export async function POST(request: Request) {
       imageWidth: sanitized.width,
       imageHeight: sanitized.height,
       salt,
-      commitment,
-      status: "awaiting_burn",
+      commitment: null,
+      submissionMode: isReplacement ? "replace" : "burn",
+      status: "draft",
       updatedAt: new Date(),
     } as const;
 
@@ -93,9 +97,9 @@ export async function POST(request: Request) {
       requestId = row.id;
     }
 
-    await getDb().insert(proposalSubmissions).values({ requestId, proposedName: parsed.data.name, proposedSymbol: parsed.data.symbol, imageBlobUrl: blob.url, imageHash: sanitized.hash, commitment });
+    await getDb().insert(proposalSubmissions).values({ requestId, proposedName: parsed.data.name, proposedSymbol: parsed.data.symbol, imageBlobUrl: blob.url, imageHash: sanitized.hash, commitment: null });
 
-    return Response.json({ requestId, burnId: burnId.toString(), burnAmount: burnAmount.toString(), commitment, mode: isReplacement ? "replace" : "burn" });
+    return Response.json({ requestId, status: "awaiting_moderation", message: "Proposal stored privately for moderation. No approval or burn is requested until its final IPFS metadata is pinned." });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Proposal preparation failed" }, { status: 400 });
   }

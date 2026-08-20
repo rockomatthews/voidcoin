@@ -26,8 +26,16 @@ if (receipt.metadata?.standard !== "B20") {
 if (receipt.metadata?.launchpad !== "VOIDCOIN" || receipt.metadata?.launchpadUrl !== "https://voidcoin.fun") {
   throw new Error("B20 metadata must expose a truthful launch source and URL");
 }
-if (receipt.metadata?.links?.website !== "https://voidcoin.fun") {
-  throw new Error("B20 metadata must expose links.website in the Basecat-compatible shape");
+const routes = {
+  website: "https://voidcoin.fun",
+  baseApp: `https://base.app/coin/base-mainnet/${prediction.token}`,
+  fomo: `https://fomo.family/tokens/base/${prediction.token}`,
+  uniswap: `https://app.uniswap.org/explore/tokens/base/${prediction.token}`,
+  dexScreener: `https://dexscreener.com/base/${prediction.token}`,
+  explorer: `https://basescan.org/token/${prediction.token}`,
+};
+if (JSON.stringify(receipt.metadata?.links) !== JSON.stringify(routes) || receipt.metadata?.market_links?.length !== 6) {
+  throw new Error("B20 metadata must expose both the Basecat-compatible links object and six typed market links");
 }
 if (getAddress(receipt.metadata?.contract_address) !== prediction.token) {
   throw new Error("B20 metadata contract_address does not match the predicted token");

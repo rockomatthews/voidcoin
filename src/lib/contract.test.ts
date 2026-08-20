@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  MAINNET_ZORA_VOID_ADDRESS,
   configuredControllerAddress,
   configuredMarketVersion,
   configuredMetadataFunction,
@@ -34,12 +33,19 @@ describe("production token adapter", () => {
     expect(zoraTradeUrl()).toBeNull();
   });
 
-  it("keeps the live Zora V3 adapter until a complete B20 address exists", () => {
+  it("fails closed instead of falling back to the obsolete Zora token", () => {
     delete process.env.NEXT_PUBLIC_VOID_B20_ADDRESS;
-    delete process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS;
-    expect(configuredMarketVersion()).toBe("zora");
-    expect(configuredMetadataFunction()).toBe("tokenURI");
-    expect(configuredTokenAddress()).toBe(MAINNET_ZORA_VOID_ADDRESS);
-    expect(zoraTradeUrl()).toContain("zora.co/coin/base%3A");
+    process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS = "0x4A64F213558Fb0188e3FC48918948EC590A66733";
+    expect(configuredMarketVersion()).toBe("unconfigured");
+    expect(configuredMetadataFunction()).toBe("contractURI");
+    expect(configuredTokenAddress()).toBeNull();
+    expect(zoraTradeUrl()).toBeNull();
+  });
+
+  it("rejects malformed B20 and controller addresses", () => {
+    process.env.NEXT_PUBLIC_VOID_B20_ADDRESS = "0xnot-an-address00000000000000000000000000";
+    process.env.NEXT_PUBLIC_VOID_B20_CONTROLLER_ADDRESS = "0x222222222222222222222222222222222222222z";
+    expect(configuredTokenAddress()).toBeNull();
+    expect(configuredControllerAddress()).toBeNull();
   });
 });

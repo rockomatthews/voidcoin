@@ -57,6 +57,7 @@ export function approvedTokenMetadata(
   contractAddress: `0x${string}`,
 ) {
   const links = officialTokenLinks(contractAddress);
+  const uniswap = `https://app.uniswap.org/explore/tokens/base/${contractAddress}`;
   return {
     interop: { erc1046: true, erc7572: true },
     name,
@@ -73,11 +74,23 @@ export function approvedTokenMetadata(
     website: OFFICIAL_WEBSITE,
     chain_id: 8453,
     contract_address: contractAddress,
-    links: { website: links.website },
+    // Basecat/PAMPU exposes links.website. Keep the richer typed routes as well.
+    // Captured source: docs/research/basecat-b20-metadata.json.
+    links: { ...links, uniswap },
+    market_links: [
+      { type: "website", label: "Website", url: links.website },
+      { type: "base", label: "Base App", url: links.baseApp },
+      { type: "fomo", label: "Fomo", url: links.fomo },
+      { type: "uniswap", label: "Uniswap", url: uniswap },
+      { type: "dexscreener", label: "DEX Screener", url: links.dexScreener },
+      { type: "explorer", label: "Contract", url: links.explorer },
+    ],
     properties: {
       network: "Base Mainnet",
       chainId: 8453,
       contractAddress,
+      standard: "B20",
+      uniswap,
       ...links,
     },
   } as const;

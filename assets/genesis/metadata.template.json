@@ -16,14 +16,31 @@
   "website": "https://voidcoin.fun",
   "chain_id": 8453,
   "contract_address": "0xPREDICTED_VOID_TOKEN_ADDRESS",
-  "links": { "website": "https://voidcoin.fun" },
+  "links": {
+    "website": "https://voidcoin.fun",
+    "baseApp": "https://base.app/coin/base-mainnet/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "fomo": "https://fomo.family/tokens/base/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "uniswap": "https://app.uniswap.org/explore/tokens/base/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "dexScreener": "https://dexscreener.com/base/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "explorer": "https://basescan.org/token/0xPREDICTED_VOID_TOKEN_ADDRESS"
+  },
+  "market_links": [
+    { "type": "website", "label": "Website", "url": "https://voidcoin.fun" },
+    { "type": "base", "label": "Base App", "url": "https://base.app/coin/base-mainnet/0xPREDICTED_VOID_TOKEN_ADDRESS" },
+    { "type": "fomo", "label": "Fomo", "url": "https://fomo.family/tokens/base/0xPREDICTED_VOID_TOKEN_ADDRESS" },
+    { "type": "uniswap", "label": "Uniswap", "url": "https://app.uniswap.org/explore/tokens/base/0xPREDICTED_VOID_TOKEN_ADDRESS" },
+    { "type": "dexscreener", "label": "DEX Screener", "url": "https://dexscreener.com/base/0xPREDICTED_VOID_TOKEN_ADDRESS" },
+    { "type": "explorer", "label": "Contract", "url": "https://basescan.org/token/0xPREDICTED_VOID_TOKEN_ADDRESS" }
+  ],
   "properties": {
     "network": "Base Mainnet",
     "chainId": 8453,
     "contractAddress": "0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "standard": "B20",
     "website": "https://voidcoin.fun",
     "baseApp": "https://base.app/coin/base-mainnet/0xPREDICTED_VOID_TOKEN_ADDRESS",
     "fomo": "https://fomo.family/tokens/base/0xPREDICTED_VOID_TOKEN_ADDRESS",
+    "uniswap": "https://app.uniswap.org/explore/tokens/base/0xPREDICTED_VOID_TOKEN_ADDRESS",
     "dexScreener": "https://dexscreener.com/base/0xPREDICTED_VOID_TOKEN_ADDRESS",
     "explorer": "https://basescan.org/token/0xPREDICTED_VOID_TOKEN_ADDRESS"
   }

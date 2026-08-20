@@ -60,13 +60,16 @@ Copy `metadataURI` from the ignored `assets/genesis/b20-published.json` receipt 
 
 ```sh
 npm run b20:verify
+npm run b20:surface:test
 npm run b20:surface:verify
 ```
 
 The first verification command fails if the deployer nonce, B20 salt, predicted token address, metadata address, or
-contract URI changed. The surface verifier fetches the exact JSON and PNG through Pinata and ipfs.io, validates the
-Basecat-compatible B20 fields, exact Base/Fomo/Uniswap routes, PNG MIME type, and a square image of at least 512px.
-Either failure blocks deployment and market launch.
+contract URI changed. The offline harness exercises the verifier's allow and deny paths without depending on a public
+gateway. The predeployment surface verifier independently re-derives the expected token from the configured deployer
+nonce and salt, fetches the exact JSON and PNG through Pinata and ipfs.io, verifies that the returned bytes hash to the
+advertised CIDs, and validates the Basecat-compatible B20 fields, full market links, PNG content, and a visible square
+image of at least 512px. Any failure blocks deployment and market launch.
 
 ## Dry-run deployment only
 
@@ -92,6 +95,14 @@ When separately authorized, rerun `npm run b20:verify` immediately before broadc
 
 The deployment creates the B20 and controller atomically. There is no Zora `addOwner` step. Do not call `setRenamePaused(false)` yet.
 
+After deployment, run the verifier again in postdeployment mode. This mode reads Base Mainnet and refuses to pass
+unless the deployed token/controller relationship and the live token identity, decimals, supply, cap, and contract URI
+match the publication receipt:
+
+```sh
+npm run b20:surface:verify -- --token 0xTOKEN --controller 0xCONTROLLER
+```
+
 ## Website cutover
 
 After the token and controller are deployed, independently verified, and read successfully from Base Mainnet, configure the production website:
@@ -103,6 +114,12 @@ NEXT_PUBLIC_VOID_SKIN_CONTROLLER_DEPLOYMENT_BLOCK=...
 ```
 
 The app will then read B20 `contractURI()` instead of Zora `tokenURI()`. It continuously reads live name, symbol, image, supply, destroyed supply, record burn, active proposal, controller pause state, and DexScreener market data. Buying remains external: Base App is the primary header link, and the telemetry section links to Uniswap, Fomo, DexScreener, and BaseScan.
+
+Apply `drizzle/0001_premoderate_before_burn.sql` before enabling rename intake. The public flow is intentionally two-stage:
+the initial private submission does not approve or burn tokens; a moderator first approves the content and pins the
+final IPFS metadata; only then can the burner sign the exact URI-bound commitment. The server verifies the emitted burn
+event before exposing Safe approval calldata. Keep the controller paused until this workflow has passed a production
+smoke test.
 
 ## Launch the market through Uniswap
 

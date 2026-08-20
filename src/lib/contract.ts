@@ -1,3 +1,4 @@
+import { getAddress, isAddress } from "viem";
 import { base } from "viem/chains";
 
 export const MAINNET_VOIDCOIN_ADDRESS = "0xF6508F41851E1E956113b31571E67A315D0832A4" as const;
@@ -10,6 +11,7 @@ export const WETH_USDC_POOL_FEE = 500;
 export const VOID_USDC_POOL_FEE = 10_000;
 
 export const voidSkinControllerAbi = [
+  { type: "function", name: "token", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   {
     type: "function",
     name: "burnForRename",
@@ -183,18 +185,12 @@ export function configuredContractAddress() {
 
 export function configuredTokenAddress() {
   const b20Address = process.env.NEXT_PUBLIC_VOID_B20_ADDRESS;
-  if (b20Address?.startsWith("0x") && b20Address.length === 42) return b20Address as `0x${string}`;
-  const zoraAddress = process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS;
-  return zoraAddress?.startsWith("0x") && zoraAddress.length === 42
-    ? (zoraAddress as `0x${string}`)
-    : MAINNET_ZORA_VOID_ADDRESS;
+  return b20Address && isAddress(b20Address) ? getAddress(b20Address) : null;
 }
 
 export function configuredControllerAddress() {
-  const address = configuredMarketVersion() === "b20"
-    ? process.env.NEXT_PUBLIC_VOID_B20_CONTROLLER_ADDRESS
-    : process.env.NEXT_PUBLIC_VOID_SKIN_CONTROLLER_ADDRESS;
-  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
+  const address = process.env.NEXT_PUBLIC_VOID_B20_CONTROLLER_ADDRESS;
+  return address && isAddress(address) ? getAddress(address) : null;
 }
 
 export function configuredV2BuyRouterAddress() {
@@ -203,16 +199,15 @@ export function configuredV2BuyRouterAddress() {
 }
 
 export function configuredMarketVersion() {
-  const b20Address = process.env.NEXT_PUBLIC_VOID_B20_ADDRESS;
-  return b20Address?.startsWith("0x") && b20Address.length === 42 ? "b20" : "zora";
+  return configuredTokenAddress() ? "b20" : "unconfigured";
 }
 
 export function configuredMetadataFunction() {
-  return configuredMarketVersion() === "b20" ? "contractURI" as const : "tokenURI" as const;
+  return "contractURI" as const;
 }
 
-export function zoraTradeUrl(address = configuredTokenAddress()) {
-  return configuredMarketVersion() === "zora" && address ? `https://zora.co/coin/base%3A${address}` : null;
+export function zoraTradeUrl() {
+  return null;
 }
 
 export function configuredCurveAddress() {
