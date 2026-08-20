@@ -72,4 +72,4 @@ No later gate implies approval of an earlier one. Record the approver, timestamp
 - Add an external Base trading link only after the live pool and token address are independently verified; the site itself never embeds a purchase form.
 - Verify BaseScan's Token Update displays `https://voidcoin.fun`, the approved description, and logo after source/address-ownership verification.
 - After a pool transaction exists, verify DexScreener discovery and its website field. Submit consistent profiles to CoinGecko, Mobula, and The Grid; do not purchase a paid listing or metadata service without a separate spending approval.
-- Verify the exact token pages at `https://base.app/coin/base-mainnet/TOKEN_ADDRESS` and `https://fomo.family/tokens/8453/TOKEN_ADDRESS`. Record evidence and escalate stale or incorrect third-party metadata to each platform with the verified BaseScan record.
+- Verify the exact token pages at `https://base.app/coin/base-mainnet/TOKEN_ADDRESS` and `https://fomo.family/tokens/base/TOKEN_ADDRESS`. Record evidence and escalate stale or incorrect third-party metadata to each platform with the verified BaseScan record.

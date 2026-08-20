@@ -28,6 +28,8 @@ security_index=0
 trap 'rm -f "$security_tmp_dir"/*.json; rmdir "$security_tmp_dir"' EXIT
 
 for security_target in \
+  contracts/src/VOIDB20SkinController.sol \
+  contracts/src/VOIDB20Bootstrapper.sol \
   contracts/src/VOIDZoraSkinController.sol \
   contracts/src/VOIDLaunch.sol \
   contracts/src/VOIDUniswapV3Migration.sol \
@@ -42,9 +44,9 @@ for security_target in \
   if ! slither "$security_target" \
       --compile-force-framework solc \
       --solc-solcs-bin "$security_solc" \
-      --solc-remaps "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/" \
-      --solc-args "--base-path . --include-path node_modules --evm-version cancun" \
-      --filter-paths "node_modules" \
+      --solc-remaps "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/ base-std/=contracts/lib/base-std/src/" \
+      --solc-args "--base-path . --include-path node_modules --include-path contracts/lib --evm-version cancun" \
+      --filter-paths "node_modules|contracts/lib" \
       --exclude timestamp \
       --json "$security_report" \
       --fail-none; then

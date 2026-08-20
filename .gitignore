@@ -9,6 +9,7 @@ coverage
 cache
 assets/genesis/published.json
 assets/genesis/zora-published.json
+assets/genesis/b20-published.json
 tools/zora-launch/zora-launch-calldata.json
 tools/zora-launch/safe-transaction-builder.json
 contracts/cache

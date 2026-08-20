@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { configuredTokenAddress, zoraTradeUrl } from "@/lib/contract";
+import { configuredMarketVersion, configuredTokenAddress, zoraTradeUrl } from "@/lib/contract";
 import { INITIAL_BURN_REQUIREMENT, formatNumber, shortAddress } from "@/lib/site";
+import { officialTokenLinks } from "@/lib/token-metadata";
 
 interface ChainState {
   name: string;
@@ -14,6 +15,7 @@ interface ChainState {
   nextBurnAmount: number;
   recordBurner: string | null;
   controllerConfigured: boolean;
+  controllerReady?: boolean;
   renamePaused: boolean;
 }
 
@@ -58,7 +60,9 @@ function when(timestamp: number | null) {
 
 export function ProtocolStats() {
   const contractAddress = configuredTokenAddress();
+  const marketVersion = configuredMarketVersion();
   const zoraUrl = zoraTradeUrl(contractAddress);
+  const links = contractAddress ? officialTokenLinks(contractAddress) : null;
   const [state, setState] = useState(previewState);
   const [market, setMarket] = useState(previewMarket);
   const [identities, setIdentities] = useState<Identity[]>([]);
@@ -112,20 +116,20 @@ export function ProtocolStats() {
           <article><span>LIQUIDITY</span><strong>{usd(market.liquidityUsd)}</strong></article>
           <article><span>24H VOLUME</span><strong>{usd(market.volume24h)}</strong></article>
           <article><span>24H CHANGE</span><strong className={(market.priceChange24h ?? 0) >= 0 ? "positive" : "negative"}>{market.priceChange24h === null ? "—" : `${market.priceChange24h > 0 ? "+" : ""}${market.priceChange24h.toFixed(1)}%`}</strong></article>
-          <article><span>IDENTITY ENGINE</span><strong>{!state.controllerConfigured ? "PENDING" : state.renamePaused ? "PAUSED" : "LIVE"}</strong></article>
+          <article><span>IDENTITY ENGINE</span><strong>{!state.controllerConfigured || state.controllerReady === false ? "PENDING" : state.renamePaused ? "PAUSED" : "LIVE"}</strong></article>
         </div>
         <div className="market-links" aria-label="Official VOIDCOIN contract and market links">
           {contractAddress ? <>
             <div><span>CONTRACT ADDRESS</span><code>{contractAddress}</code></div>
             <nav aria-label="VOIDCOIN links">
-              <a href={`https://basescan.org/token/${contractAddress}`} target="_blank" rel="noreferrer">BASESCAN ↗</a>
+              <a href={links?.explorer} target="_blank" rel="noreferrer">BASESCAN ↗</a>
               {zoraUrl ? <a href={zoraUrl} target="_blank" rel="noreferrer">ZORA ↗</a> : null}
               <a href={`https://app.uniswap.org/explore/tokens/base/${contractAddress}`} target="_blank" rel="noreferrer">UNISWAP ↗</a>
-              <a href={`https://dexscreener.com/base/${contractAddress}`} target="_blank" rel="noreferrer">DEXSCREENER ↗</a>
-              <a href={`https://base.app/coin/base-mainnet/${contractAddress}`} target="_blank" rel="noreferrer">BASE APP ↗</a>
-              <a href={`https://fomo.family/tokens/8453/${contractAddress}`} target="_blank" rel="noreferrer">FOMO ↗</a>
+              <a href={links?.dexScreener} target="_blank" rel="noreferrer">DEXSCREENER ↗</a>
+              <a href={links?.baseApp} target="_blank" rel="noreferrer">BASE APP ↗</a>
+              <a href={links?.fomo} target="_blank" rel="noreferrer">FOMO ↗</a>
             </nav>
-          </> : <div><span>ZORA V3 CONTRACT</span><code>NOT BROADCAST</code></div>}
+          </> : <div><span>{marketVersion === "b20" ? "B20 V4" : "ZORA V3"} CONTRACT</span><code>NOT BROADCAST</code></div>}
         </div>
       </section>
 

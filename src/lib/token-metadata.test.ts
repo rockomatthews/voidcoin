@@ -12,7 +12,7 @@ describe("token identity metadata", () => {
     const address = "0x1111111111111111111111111111111111111111";
     const metadata = approvedTokenMetadata("Night Shift", "NIGHT", "ipfs://image-cid", address);
     expect(metadata).toMatchObject({
-      interop: { erc1046: true },
+      interop: { erc1046: true, erc7572: true },
       name: "Night Shift",
       symbol: "NIGHT",
       decimals: 18,
@@ -34,7 +34,7 @@ describe("token identity metadata", () => {
     expect(officialTokenLinks(address)).toEqual({
       website: "https://voidcoin.fun",
       baseApp: `https://base.app/coin/base-mainnet/${address}`,
-      fomo: `https://fomo.family/tokens/8453/${address}`,
+      fomo: `https://fomo.family/tokens/base/${address}`,
       dexScreener: `https://dexscreener.com/base/${address}`,
       explorer: `https://basescan.org/token/${address}`,
     });

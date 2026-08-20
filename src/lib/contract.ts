@@ -61,6 +61,7 @@ export const voidSkinControllerAbi = [
   { type: "function", name: "destroyedSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "contestBurned", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "renamePaused", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  { type: "function", name: "controllerReady", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   {
     type: "function",
     name: "activeSlot",
@@ -114,18 +115,21 @@ export const voidSkinControllerAbi = [
   },
 ] as const;
 
-export const zoraContentCoinAbi = [
+export const voidTokenAbi = [
   { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "tokenURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "contractURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
 
-// Historical V1/V2 modules still import this name. New production code must use
-// voidSkinControllerAbi and zoraContentCoinAbi explicitly.
+export const zoraContentCoinAbi = voidTokenAbi;
+
+// Historical V1/V2 modules still import this name. Production identity code uses
+// voidSkinControllerAbi plus voidTokenAbi so V3 tokenURI and V4 contractURI coexist.
 export const voidCoinAbi = voidSkinControllerAbi;
 
 export const voidBondingCurveAbi = [
@@ -178,12 +182,18 @@ export function configuredContractAddress() {
 }
 
 export function configuredTokenAddress() {
-  const address = process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS;
-  return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : MAINNET_ZORA_VOID_ADDRESS;
+  const b20Address = process.env.NEXT_PUBLIC_VOID_B20_ADDRESS;
+  if (b20Address?.startsWith("0x") && b20Address.length === 42) return b20Address as `0x${string}`;
+  const zoraAddress = process.env.NEXT_PUBLIC_ZORA_VOID_ADDRESS;
+  return zoraAddress?.startsWith("0x") && zoraAddress.length === 42
+    ? (zoraAddress as `0x${string}`)
+    : MAINNET_ZORA_VOID_ADDRESS;
 }
 
 export function configuredControllerAddress() {
-  const address = process.env.NEXT_PUBLIC_VOID_SKIN_CONTROLLER_ADDRESS;
+  const address = configuredMarketVersion() === "b20"
+    ? process.env.NEXT_PUBLIC_VOID_B20_CONTROLLER_ADDRESS
+    : process.env.NEXT_PUBLIC_VOID_SKIN_CONTROLLER_ADDRESS;
   return address?.startsWith("0x") && address.length === 42 ? (address as `0x${string}`) : null;
 }
 
@@ -193,11 +203,16 @@ export function configuredV2BuyRouterAddress() {
 }
 
 export function configuredMarketVersion() {
-  return configuredTokenAddress() ? "zora" : "preview";
+  const b20Address = process.env.NEXT_PUBLIC_VOID_B20_ADDRESS;
+  return b20Address?.startsWith("0x") && b20Address.length === 42 ? "b20" : "zora";
+}
+
+export function configuredMetadataFunction() {
+  return configuredMarketVersion() === "b20" ? "contractURI" as const : "tokenURI" as const;
 }
 
 export function zoraTradeUrl(address = configuredTokenAddress()) {
-  return address ? `https://zora.co/coin/base%3A${address}` : null;
+  return configuredMarketVersion() === "zora" && address ? `https://zora.co/coin/base%3A${address}` : null;
 }
 
 export function configuredCurveAddress() {

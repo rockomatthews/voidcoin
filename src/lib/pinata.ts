@@ -29,7 +29,7 @@ async function pinJson(value: unknown, name: string) {
 
 export async function publishApprovedMetadata(input: { blobUrl: string; name: string; symbol: string; requestId: string }) {
   const contractAddress = configuredTokenAddress();
-  if (!contractAddress) throw new Error("NEXT_PUBLIC_ZORA_VOID_ADDRESS is not configured");
+  if (!contractAddress) throw new Error("The production VOID token address is not configured");
   const stored = await get(input.blobUrl, { access: "private" });
   if (!stored || stored.statusCode !== 200) throw new Error("Private proposal image could not be read");
   const bytes = new Uint8Array(await new Response(stored.stream).arrayBuffer());

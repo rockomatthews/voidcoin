@@ -10,7 +10,7 @@ export function officialTokenLinks(contractAddress: `0x${string}`) {
   return {
     website: OFFICIAL_WEBSITE,
     baseApp: `https://base.app/coin/base-mainnet/${contractAddress}`,
-    fomo: `https://fomo.family/tokens/8453/${contractAddress}`,
+    fomo: `https://fomo.family/tokens/base/${contractAddress}`,
     dexScreener: `https://dexscreener.com/base/${contractAddress}`,
     explorer: `https://basescan.org/token/${contractAddress}`,
   } as const;
@@ -48,6 +48,8 @@ export async function imageFromTokenURI(uri: string) {
   }
 }
 
+export const imageFromContractURI = imageFromTokenURI;
+
 export function approvedTokenMetadata(
   name: string,
   symbol: string,
@@ -56,7 +58,7 @@ export function approvedTokenMetadata(
 ) {
   const links = officialTokenLinks(contractAddress);
   return {
-    interop: { erc1046: true },
+    interop: { erc1046: true, erc7572: true },
     name,
     symbol,
     decimals: 18,

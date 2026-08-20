@@ -11,5 +11,7 @@ optimizer_runs = 200
 evm_version = "cancun"
 remappings = [
   "@openzeppelin/contracts/=../node_modules/@openzeppelin/contracts/",
+  "base-std/=lib/base-std/src/",
+  "base-std-test/=lib/base-std/test/",
   "forge-std/=lib/forge-std/src/"
 ]

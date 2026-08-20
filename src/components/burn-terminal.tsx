@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useChainId, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { WalletButton } from "@/components/wallet-button";
-import { configuredChainId, configuredControllerAddress, configuredTokenAddress, voidSkinControllerAbi, zoraContentCoinAbi } from "@/lib/contract";
+import { configuredChainId, configuredControllerAddress, configuredMarketVersion, configuredTokenAddress, voidSkinControllerAbi, voidTokenAbi } from "@/lib/contract";
 import { INITIAL_BURN_REQUIREMENT, MAX_STRATEGIC_PREMIUM, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber, nextTakeoverRequirement } from "@/lib/site";
 
 type Phase = "idle" | "signing" | "preparing" | "burning" | "confirming" | "complete" | "error";
@@ -16,6 +16,7 @@ export function BurnTerminal() {
   const targetChainId = configuredChainId();
   const tokenAddress = configuredTokenAddress();
   const controllerAddress = configuredControllerAddress();
+  const marketVersion = configuredMarketVersion();
   const publicClient = usePublicClient({ chainId: targetChainId });
   const { switchChainAsync } = useSwitchChain();
   const { signMessageAsync } = useSignMessage();
@@ -74,7 +75,7 @@ export function BurnTerminal() {
   useEffect(() => {
     if (!address || !tokenAddress || !publicClient) return;
     let cancelled = false;
-    publicClient.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "balanceOf", args: [address] })
+    publicClient.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "balanceOf", args: [address] })
       .then((value) => { if (!cancelled) setBalanceState({ wallet: address, value: Number(formatUnits(value, 18)) }); })
       .catch(() => undefined);
     return () => { cancelled = true; };
@@ -113,14 +114,15 @@ export function BurnTerminal() {
       const isReplacement = prepared.mode === "replace";
       const burnAmountWei = BigInt(prepared.burnAmount);
       if (!isReplacement) {
-        const allowance = await publicClient.readContract({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "allowance", args: [address, controllerAddress] });
+        const allowance = await publicClient.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "allowance", args: [address, controllerAddress] });
         if (allowance < burnAmountWei) {
           setMessage(`Approve the transformation controller to use exactly ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}. This approval does not burn yet.`);
-          const approvalHash = await writeContractAsync({ address: tokenAddress, abi: zoraContentCoinAbi, functionName: "approve", args: [controllerAddress, burnAmountWei], chainId: targetChainId });
+          const approvalHash = await writeContractAsync({ address: tokenAddress, abi: voidTokenAbi, functionName: "approve", args: [controllerAddress, burnAmountWei], chainId: targetChainId });
           await publicClient.waitForTransactionReceipt({ hash: approvalHash });
         }
       }
-      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent Zora token burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}.`);
+      const burnKind = marketVersion === "b20" ? "native B20" : "Zora token";
+      setMessage(isReplacement ? "Confirm the replacement proposal. No additional burn is required." : `Confirm the permanent ${burnKind} burn of ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}.`);
       const transactionHash = isReplacement
         ? await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "replaceCommitment", args: [BigInt(prepared.burnId), prepared.commitment], chainId: targetChainId })
         : await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "burnForRename", args: [BigInt(prepared.burnId), burnAmountWei, prepared.commitment], chainId: targetChainId });
@@ -172,7 +174,7 @@ export function BurnTerminal() {
   }
 
   const disabledReason = !tokenAddress || !controllerAddress
-    ? "The Zora coin and transformation controller are not active yet."
+    ? "The token and transformation controller are not active yet."
     : !isConnected
       ? "Connect a wallet to enter the chamber."
       : !ownsActiveSlot && (!Number.isSafeInteger(burnAmountNumber) || burnAmountNumber < requiredBurn)

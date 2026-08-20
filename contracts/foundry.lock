@@ -1,0 +1,8 @@
+{
+  "lib/base-std": {
+    "rev": "fc13edf179415af235933953fb4537e263c8d1db"
+  },
+  "lib/forge-std": {
+    "rev": "bf647bd6046f2f7da30d0c2bf435e5c76a780c1b"
+  }
+}

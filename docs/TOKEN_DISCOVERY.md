@@ -4,7 +4,7 @@ VOIDCOIN's permanent official website is `https://voidcoin.fun`. Every genesis a
 
 ## What each app reads
 
-- The token contract exposes an ERC-1046-style `tokenURI()` with the current name, symbol, image, description, website, Base App route, Fomo route, DexScreener route, and BaseScan contract route. This is the protocol-controlled source.
+- V3 exposes a Zora `tokenURI()`. V4 exposes the standard B20/ERC-7572 `contractURI()` with the current name, symbol, image, description, website, Base App route, Fomo route, Uniswap route, DexScreener route, and BaseScan route. The website selects the correct function from the configured token version.
 - Base App indexes token data through Coinbase asset-metadata services. Its documented Base token route is `https://base.app/coin/base-mainnet/TOKEN_ADDRESS`; do not assume it will render every custom `tokenURI()` field.
 - Fomo renders `token.info.description` and `token.socialLinks.website` from its own backend. Its public client also uses Mobula market data and allows The Grid and Defined token-media sources. Keep Mobula, CoinGecko, The Grid, BaseScan, and DexScreener consistent with the official site.
 - DexScreener automatically discovers a token after a liquidity pool exists and has at least one transaction. Its description and website are separately indexed from supported token-information sources or its paid Enhanced Token Info product.
@@ -32,7 +32,7 @@ Onchain/IPFS metadata improves portability, but no immutable contract can force 
 5. Submit the asset to CoinGecko and make its website exactly `https://voidcoin.fun`.
 6. Claim or submit the token profile through The Grid and Mobula, using the same website, description, contract address, and logo.
 7. Verify `https://base.app/coin/base-mainnet/TOKEN_ADDRESS`. If the website is absent or wrong after indexing, send Coinbase/Base App support the verified BaseScan page and official domain.
-8. Verify `https://fomo.family/tokens/8453/TOKEN_ADDRESS`. If the website is absent or wrong, send Fomo support the verified BaseScan, Mobula, and The Grid records.
+8. Verify `https://fomo.family/tokens/base/TOKEN_ADDRESS`. If the website is absent or wrong, send Fomo support the verified BaseScan, Mobula, and The Grid records.
 9. Record screenshots and timestamps for Base App, Fomo, BaseScan, and DexScreener in the launch evidence.
 
 ## Contract-address link behavior
