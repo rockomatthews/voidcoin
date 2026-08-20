@@ -1,5 +1,7 @@
 # VOIDCOIN V4 native B20 — independent audit handoff
 
+> **HOLD — DO NOT COMMISSION THIS AUDIT.** The launch plan is being evaluated for a canonical o1 Launchpad integration. The current o1 production factory does not grant the `BURN_ROLE` required by VOID's genuine burn contest. See `docs/O1_LAUNCH_COMPATIBILITY.md`. This handoff remains a record of the frozen custom-bootstrapper design and will be replaced if o1 supports the required controller role bundle.
+
 Prepared: August 20, 2026
 
 Repository: `https://github.com/rockomatthews/voidcoin`
