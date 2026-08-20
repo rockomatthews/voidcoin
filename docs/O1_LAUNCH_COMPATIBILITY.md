@@ -1,6 +1,6 @@
 # VOIDCOIN V4 — o1 Launchpad compatibility gate
 
-Status: **blocked on an o1 launch-factory capability; do not audit or deploy yet**
+Status: **o1 rejected for VOID V4; custom native B20 route selected**
 
 Checked: August 20, 2026
 
@@ -59,7 +59,27 @@ Therefore:
 
 This is a protocol-level incompatibility, not a website or deployment-script issue.
 
-## Required o1 capability
+## Why no undocumented o1 route remains
+
+The public API does not provide an escape hatch around the factory. Its launch preparation endpoint builds the
+active factory call, while its indexer documentation states that public clients cannot write product records or
+force an indexing job. An API key therefore changes access to documented preparation endpoints, not the token roles
+the production factory can grant.
+
+Flaunch's external-token importer was also evaluated as a fallback. Its production `TokenImporter` requires an
+owner-approved verifier to accept the token/caller, and its `AnyPositionManager` accepts launches only from approved
+coin creators. It is not a permissionless route for a custom VOID B20 and would merely replace an o1 dependency with
+a Flaunch approval dependency.
+
+References:
+
+- <https://docs.o1.exchange/launchpad/api/introduction>
+- <https://docs.o1.exchange/launchpad/api/launches>
+- <https://docs.o1.exchange/launchpad/architecture/frontend-indexer>
+- <https://github.com/flayerlabs/flaunch-sdk>
+- <https://github.com/flayerlabs/flaunchgg-contracts>
+
+## Capability o1 would have needed
 
 VOID needs an o1-recognized launch route that adds one narrowly scoped initialization mode:
 
@@ -86,29 +106,24 @@ Acceptable o1 solutions:
 
 A private fork of the o1 contracts is not sufficient. It would not automatically receive the canonical o1 profile/indexing path that is the primary reason for this pivot.
 
-## Exact request to send o1
-
-> We want to launch VOIDCOIN through the canonical o1 Base B20 launch path, with the standard one-billion fixed supply, o1 profile/indexing, and permanently locked Uniswap v4 liquidity. VOID has one additional non-custodial feature: holders compete by transferring tokens to a controller that permanently burns them, and the winning burn commitment can update the B20 name, symbol, and contractURI only after Safe approval. The B20 must remain adminless and non-mintable.
->
-> Your current verified `B20LaunchpadFactory` accepts only roleMode 0/1, grants only METADATA_ROLE, rejects BURN_ROLE as dangerous, and leaves no admin capable of granting it later. Can o1 support a production launch mode or allowlisted controller parameter that grants exactly METADATA_ROLE and BURN_ROLE to our audited controller during B20 initialization, while granting no admin, mint, pause, seize, operator, or blocked-burn role? The launch must remain a canonical o1 launch in your indexer/UI and downstream Base discovery path. An existing-token registration route with the same verified invariants would also work.
->
-> We will provide the controller source, audit report, deterministic address, role invariants, and a no-broadcast Base simulation. We will not launch until you confirm the exact production factory/API route and indexing treatment.
-
-## Work that remains reusable
+## Selected self-service route
 
 The existing `VOIDB20SkinController` state machine remains the intended authority model. Its contest logic, stale-ID protection, commitment binding, burn accounting, metadata validation, Safe ownership, initial pause, website reads, and monitoring components remain reusable.
 
-The existing `VOIDB20Bootstrapper` and `DeployB20V4.s.sol` are not the production launch path if o1 supports the requested mode. They would be replaced by an o1-specific controller-launch adapter and a Safe transaction preparation/verification flow using the exact active o1 factory ABI and configuration.
+The production route is now:
+
+1. create VOID through Base's native B20 factory using the audited `VOIDB20Bootstrapper`;
+2. grant only `BURN_ROLE` and `METADATA_ROLE` to the paused controller during atomic initialization;
+3. publish ERC-7572/IPFS metadata using the same top-level B20 fields and `links.website` shape observed on
+   well-rendered o1 launches, while truthfully identifying VOIDCOIN rather than o1 as the launch source;
+4. block market launch unless the metadata JSON and square PNG resolve through two independent public IPFS gateways;
+5. use Uniswap's existing-token launch flow to create the public liquid market without replacing the token; and
+6. verify Base App, Fomo, Uniswap, DexScreener, BaseScan, and the VOID website before separately unpausing the contest.
+
+Base officially documents direct custom B20 creation with arbitrary initialization calls. This preserves VOID's
+roles and one-billion cap without a launcher allowlist: <https://docs.base.org/get-started/launch-b20-token>.
 
 ## Closed gates
 
-Until o1 confirms a supported production route:
-
-- do not pay for the frozen V4 audit;
-- do not deploy the custom bootstrapper or controller;
-- do not publish final-address metadata;
-- do not prepare or sign an o1 launch transaction;
-- do not create a Uniswap auction or pool separately; and
-- do not describe VOID V4 as ready to launch.
-
-Once o1 confirms support, freeze the exact o1 factory/API version, implement the adapter, run the full local suite and a live-precompile no-broadcast simulation, and issue a replacement auditor package covering the actual o1 path.
+This decision does not authorize deployment, metadata publication, approval, auction/pool creation, Safe execution,
+or controller unpause. The contract audit, final-address metadata checks, and launch economics remain explicit gates.

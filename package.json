@@ -18,6 +18,7 @@
     "b20:predict": "node --env-file=.env.local scripts/predict-b20-v4.mjs",
     "b20:publish": "node --env-file=.env.local scripts/publish-b20-genesis.mjs",
     "b20:verify": "node --env-file=.env.local scripts/verify-b20-genesis.mjs",
+    "b20:surface:verify": "node scripts/verify-b20-surface-readiness.mjs",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts -vvv",
     "contracts:security": "./scripts/security-check.sh",

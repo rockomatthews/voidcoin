@@ -15,6 +15,9 @@ describe("token identity metadata", () => {
       interop: { erc1046: true, erc7572: true },
       name: "Night Shift",
       symbol: "NIGHT",
+      standard: "B20",
+      launchpad: "VOIDCOIN",
+      launchpadUrl: "https://voidcoin.fun",
       decimals: 18,
       image: "ipfs://image-cid",
       images: ["ipfs://image-cid"],
@@ -26,7 +29,7 @@ describe("token identity metadata", () => {
     });
     expect(metadata.description).toContain("https://voidcoin.fun remains permanent");
     expect(metadata.properties.dexScreener).toBe(`https://dexscreener.com/base/${address}`);
-    expect(metadata.links).toContainEqual({ type: "website", label: "Website", url: "https://voidcoin.fun" });
+    expect(metadata.links).toEqual({ website: "https://voidcoin.fun" });
   });
 
   it("builds Base App and Fomo token routes from the immutable contract address", () => {

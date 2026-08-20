@@ -20,6 +20,15 @@ if (receipt.prediction?.salt?.toLowerCase() !== prediction.salt.toLowerCase()) {
 if (receipt.metadata?.website !== "https://voidcoin.fun" || receipt.metadata?.external_url !== "https://voidcoin.fun") {
   throw new Error("B20 metadata must retain https://voidcoin.fun");
 }
+if (receipt.metadata?.standard !== "B20") {
+  throw new Error("B20 metadata must expose the canonical standard field");
+}
+if (receipt.metadata?.launchpad !== "VOIDCOIN" || receipt.metadata?.launchpadUrl !== "https://voidcoin.fun") {
+  throw new Error("B20 metadata must expose a truthful launch source and URL");
+}
+if (receipt.metadata?.links?.website !== "https://voidcoin.fun") {
+  throw new Error("B20 metadata must expose links.website in the Basecat-compatible shape");
+}
 if (getAddress(receipt.metadata?.contract_address) !== prediction.token) {
   throw new Error("B20 metadata contract_address does not match the predicted token");
 }

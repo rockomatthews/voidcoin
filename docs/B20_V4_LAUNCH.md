@@ -24,7 +24,14 @@ forge test --root contracts --match-contract VOIDB20V4Test -vv
 npm run verify
 ```
 
-The local B20 tests use Base's official reference precompile mocks. Before mainnet, also run a Base-fork or Base-native Foundry conformance test against the live precompile and obtain a focused independent audit of:
+Stock Forge uses Base's reference mocks. Before mainnet, run the same suite with Base's official patched Foundry so
+the tests execute the Rust precompiles in-process:
+
+```sh
+base-forge test --root contracts --match-contract VOIDB20V4Test -vv
+```
+
+The output must identify `LIVE PRECOMPILE mode`, with no skips. Also obtain a focused independent audit of:
 
 - `contracts/src/VOIDB20SkinController.sol`
 - `contracts/src/VOIDB20Bootstrapper.sol`
@@ -53,9 +60,13 @@ Copy `metadataURI` from the ignored `assets/genesis/b20-published.json` receipt 
 
 ```sh
 npm run b20:verify
+npm run b20:surface:verify
 ```
 
-The verification command is a closed deployment gate. It fails if the deployer nonce, B20 salt, predicted token address, metadata address, or contract URI changed.
+The first verification command fails if the deployer nonce, B20 salt, predicted token address, metadata address, or
+contract URI changed. The surface verifier fetches the exact JSON and PNG through Pinata and ipfs.io, validates the
+Basecat-compatible B20 fields, exact Base/Fomo/Uniswap routes, PNG MIME type, and a square image of at least 512px.
+Either failure blocks deployment and market launch.
 
 ## Dry-run deployment only
 

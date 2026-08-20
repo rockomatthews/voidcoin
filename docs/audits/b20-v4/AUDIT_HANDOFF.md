@@ -1,12 +1,15 @@
 # VOIDCOIN V4 native B20 — independent audit handoff
 
-> **HOLD — DO NOT COMMISSION THIS AUDIT.** The launch plan is being evaluated for a canonical o1 Launchpad integration. The current o1 production factory does not grant the `BURN_ROLE` required by VOID's genuine burn contest. See `docs/O1_LAUNCH_COMPATIBILITY.md`. This handoff remains a record of the frozen custom-bootstrapper design and will be replaced if o1 supports the required controller role bundle.
+> **READY FOR INDEPENDENT REVIEW.** The o1 route was rejected because its verified production factory cannot grant
+> the `BURN_ROLE` required by VOID's genuine burn contest, and its public API cannot register an external B20 or force
+> indexing. The frozen custom native-B20 design is the selected production contract path. See
+> `docs/O1_LAUNCH_COMPATIBILITY.md` for the compatibility evidence and alternate launch plan.
 
 Prepared: August 20, 2026
 
 Repository: `https://github.com/rockomatthews/voidcoin`
 
-Branch: `codex/b20-v4`
+Delivery branch: `codex/o1-v4`
 
 Frozen production commit: `c7ac786625a92b4c626a5cbfc15816dd2d9a16d1`
 
@@ -191,7 +194,9 @@ If stock Anvil/Forge substitutes the reference mocks, label that result as a moc
 
 ## Known limitations and out-of-scope items
 
-- No live-precompile deployment simulation has yet been completed.
+- Base's official patched Forge `1.6.0-v1.1.0` (`6130ccf6af0b3399777aee3876486e2ba9ebb38f`)
+  ran `VOIDB20V4Test` in `LIVE PRECOMPILE mode` on August 20, 2026: 10 passed, 0 failed, 0 skipped.
+  Reproduction evidence: `docs/audits/b20-v4/LIVE_PRECOMPILE_EVIDENCE.md`.
 - Third-party applications can cache or override token metadata. The contract cannot guarantee when Base App, Fomo, DexScreener, BaseScan, wallets, or other indexers show a logo or refreshed name/ticker.
 - No Uniswap auction has been created. Auction allocation, valuation, duration, settlement, liquidity migration, LP ownership, approvals, and Safe calldata require a separate economic and operational review.
 - The website is a read-only display and external-link surface for trading. It is not an exchange and contains no V4 on-site purchase widget.
