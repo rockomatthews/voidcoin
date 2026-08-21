@@ -88,7 +88,8 @@ async function fetchBytesChecked(initialUrl, label, maximumBytes, fetchImpl = fe
   let current = new URL(initialUrl);
   const originalOrigin = current.origin;
   for (let redirects = 0; redirects <= 2; redirects += 1) {
-    const response = await fetchImpl(current, { redirect: "manual", signal: AbortSignal.timeout(20_000) });
+    const accept = label.endsWith(" metadata") ? "application/json" : "image/png";
+    const response = await fetchImpl(current, { redirect: "manual", headers: { Accept: accept }, signal: AbortSignal.timeout(45_000) });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       requireValue(location, `${label} returned a redirect without Location`);
