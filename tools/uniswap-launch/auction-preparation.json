@@ -1,0 +1,89 @@
+{
+  "status": "PREPARED_NOT_EXECUTED",
+  "warning": "Review only. Importing does not authorize signing or execution.",
+  "preparedAt": 1787343094209,
+  "officialSdk": {
+    "package": "@uniswap/liquidity-launcher-sdk",
+    "version": "1.11.0"
+  },
+  "chain": {
+    "chainId": 8453,
+    "observedBlock": "50276873",
+    "observedTimestamp": "1787343093",
+    "blockTimeSeconds": 2
+  },
+  "deployment": {
+    "safe": "0x30cA25b5de6d9d8eD6Df5a2392211d1F10b266b9",
+    "token": "0xB2000000000000000000008f1878BE4d462Bd979",
+    "controller": "0xaab614e99d804D9fAfCc35605791442bF120b71D",
+    "liquidityLauncher": "0x00004c4ccc709Ef590F7C81102C0689F0263D4e9",
+    "lbpStrategy": "0x34385dD739FE5464892BF0bA4CC42492804dA000",
+    "ccaFactory": "0x000000001F26a0044BaA66024e7b6599c61963F8",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "positionManager": "0x7C5f5A4bBd8fD63184577525326123B519429bDc",
+    "codeBytes": {
+      "launcherCodeBytes": 3747,
+      "lbpCodeBytes": 20624,
+      "ccaFactoryCodeBytes": 24214,
+      "permit2CodeBytes": 9152
+    }
+  },
+  "safeState": {
+    "owners": [
+      "0x8A0182c099A618583e9EF98716DAcF739b3BD944",
+      "0x10944aed9cA4f39F4578f2C4538B38Acd0D7f2b5",
+      "0xAb58253C563313feE54C397f6aA877C715d8aa2c"
+    ],
+    "threshold": "2",
+    "nonce": "1",
+    "tokenBalance": "1000000000000000000000000000",
+    "erc20ToPermit2Allowance": "0",
+    "permit2ToLauncherAllowance": {
+      "amount": "0",
+      "expiration": 0,
+      "nonce": 0
+    }
+  },
+  "auction": {
+    "source": "existing-token",
+    "tokenDeposit": "1000000000000000000000000000",
+    "soldSupply": "500000000000000000000000000",
+    "reservedForLp": "500000000000000000000000000",
+    "currency": "native ETH",
+    "startTimeUnix": "1787349600",
+    "endTimeUnix": "1787364000",
+    "startBlock": "50280127",
+    "endBlock": "50287327",
+    "claimBlock": "50287327",
+    "migrationBlock": "50287328",
+    "durationSeconds": "14400",
+    "floorFdvUsd": 1000,
+    "floorPricePerTokenEth": "0.000000000414175573",
+    "graduationFdvUsd": 10000,
+    "graduationPricePerTokenEth": "0.000000004141755732",
+    "requiredCurrencyRaisedWei": "2070877865999999999",
+    "ethUsdPrice": 2414.435,
+    "poolFeeHundredthsBip": 2500,
+    "poolTickSpacing": 25,
+    "poolId": "0x76b74acd45bd3433fb0d95e1c007aaf210eb782bbc8022f258d07134e9d3a98f",
+    "lpRange": "full-range",
+    "raisedFundsAllocatedToLpPercent": 100,
+    "poolOwnerAndRecoveryRecipient": "0x30cA25b5de6d9d8eD6Df5a2392211d1F10b266b9",
+    "lpPositionRecipient": "0x000000000000000000000000000000000000dEaD",
+    "lpPositionPolicy": "permanently burned",
+    "validationHook": "0x0000000000000000000000000000000000000000",
+    "salt": "0x9bad18b07e45599aaa2e55588579f4574325fe219e0825188afbdf310c16e6e3",
+    "initializerSalt": "0x9bc773dae1ef10dc13bb10edb890038b16cfab8161c43446536d6b8309601518",
+    "predictedAuctionAddress": "0xB20C3C465Be9B368eCaF81CAC2a03bB495a73dF7"
+  },
+  "transactionPolicy": {
+    "atomicallyBundleable": true,
+    "transactionCount": 3,
+    "erc20Approval": "exact 1,000,000,000 VOID to Permit2",
+    "permit2Approval": "exact 1,000,000,000 VOID to LiquidityLauncher; consumed by the same atomic batch",
+    "permit2Expiration": 1787364000,
+    "valueWei": "0",
+    "includesControllerUnpause": false
+  },
+  "safeBuilderFile": "safe-transaction-builder.json"
+}

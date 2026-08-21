@@ -124,6 +124,9 @@ smoke test.
 
 ## Launch the market through Uniswap
 
+Use [`B20_V4_AUCTION_PREPARATION.md`](B20_V4_AUCTION_PREPARATION.md) for the pinned configuration, exact-allowance Safe
+batch, live-chain preflight, and private Base-fork simulation artifacts.
+
 Open the official [Uniswap Launch Auction](https://app.uniswap.org/liquidity/launch-auction) flow and choose **Use existing token**. Do not choose **Create new token**; that would create a different immutable token and discard V4's B20/controller design.
 
 Connect the production Safe and import the verified B20 address. Use the same VOID logo, `https://voidcoin.fun`, and genesis description. The auction UI then asks for economic choices that must be explicitly approved before any Safe signature:

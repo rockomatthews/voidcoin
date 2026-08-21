@@ -1,0 +1,13 @@
+{
+  "name": "voidcoin-uniswap-launch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@uniswap/liquidity-launcher-sdk": "1.11.0",
+    "viem": "2.55.13"
+  }
+}

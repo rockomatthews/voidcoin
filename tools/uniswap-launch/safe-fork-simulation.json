@@ -1,0 +1,35 @@
+{
+  "status": "PASS_PRIVATE_BASE_FORK_LIVE_PRECOMPILES",
+  "warning": "Private-fork evidence only. No Mainnet transaction was proposed, signed, or broadcast.",
+  "simulatedAt": 1787343113412,
+  "builderSha256": "9c13bdff7180f786ce260139fc3246bc478012d7562e8f5362902c1c146381a0",
+  "forkBlock": "50276879",
+  "safeTransactionHash": "0x6a90bcfedf73c4395dfb2f7a65db8eba42fb9bb3ea7ef40f366a96caaac221b8",
+  "forkExecutionTransactionHash": "0x4d8b172f13f6a3c88c1c060d5bb5746c6be5541e61e9902e09b2ee3edd742452",
+  "gasUsed": "4517404",
+  "multiSend": "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761",
+  "operation": "delegatecall",
+  "safeNonceBefore": "1",
+  "safeNonceAfter": "2",
+  "auction": "0xB20C3C465Be9B368eCaF81CAC2a03bB495a73dF7",
+  "postState": {
+    "safeTokenBalance": "0",
+    "launcherTokenBalance": "0",
+    "strategyLpReserveBalance": "500000000000000000000000000",
+    "auctionSaleBalance": "500000000000000000000000000",
+    "erc20ToPermit2Allowance": "0",
+    "permit2ToLauncherAllowance": {
+      "amount": "0",
+      "expiration": 1787364000,
+      "nonce": 0
+    },
+    "controllerPaused": true,
+    "registeredAuction": "0xB20C3C465Be9B368eCaF81CAC2a03bB495a73dF7",
+    "auctionToken": "0xB2000000000000000000008f1878BE4d462Bd979",
+    "auctionCurrency": "0x0000000000000000000000000000000000000000",
+    "tokensRecipient": "0x30cA25b5de6d9d8eD6Df5a2392211d1F10b266b9",
+    "fundsRecipient": "0x34385dD739FE5464892BF0bA4CC42492804dA000",
+    "auctionStartBlock": "50280127",
+    "auctionEndBlock": "50287327"
+  }
+}

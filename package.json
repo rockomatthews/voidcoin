@@ -20,6 +20,8 @@
     "b20:verify": "node --env-file=.env.local scripts/verify-b20-genesis.mjs",
     "b20:surface:verify": "node --env-file=.env.local scripts/verify-b20-surface-readiness.mjs",
     "b20:surface:test": "node scripts/surface-readiness-harness.mjs",
+    "b20:auction:prepare": "node --env-file=.env.local tools/uniswap-launch/prepare.mjs",
+    "b20:auction:simulate": "node tools/uniswap-launch/simulate-safe.mjs",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts -vvv",
     "contracts:security": "./scripts/security-check.sh",
