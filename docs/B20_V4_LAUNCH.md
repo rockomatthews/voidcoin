@@ -69,7 +69,8 @@ contract URI changed. The offline harness exercises the verifier's allow and den
 gateway. The predeployment surface verifier independently re-derives the expected token from the configured deployer
 nonce and salt, fetches the exact JSON and PNG through Pinata and ipfs.io, verifies that the returned bytes hash to the
 advertised CIDs, and validates the Basecat-compatible B20 fields, full market links, PNG content, and a visible square
-image of at least 512px. Any failure blocks deployment and market launch.
+image of at least 512px. It also requires the receipt's local metadata record to be structurally identical to the
+CID-bound public document. Any failure blocks deployment and market launch.
 
 ## Dry-run deployment only
 
@@ -154,3 +155,7 @@ The B20 contract is the canonical identity source, but third-party apps still ca
 10. Save screenshots, URLs, timestamps, and support tickets as launch evidence. No contract can force a third-party cache to refresh.
 
 Only after the token, auction/pool, website, moderation path, and external metadata surfaces have passed the final checklist should the Safe separately call `setRenamePaused(false)`.
+
+The Safe must follow `docs/B20_V4_SAFE_RUNBOOK.md` for every rename and before unpausing. In particular, the used-name
+ledger is append-only and begins with `VOIDCOIN`; reused names are rejected. The Safe must also re-read and compare the
+entire `activeSlot()`, including its commitment, immediately before signing the lock-and-approve batch.

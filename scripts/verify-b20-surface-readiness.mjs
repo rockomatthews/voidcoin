@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { MemoryBlockstore } from "blockstore-core/memory";
 import { importer } from "ipfs-unixfs-importer";
 import { CID } from "multiformats/cid";
@@ -150,6 +151,7 @@ export async function verifySurfaceReceipt({ receipt, expectedAddress, fetchImpl
     await assertBytesMatchCid(metadataResponse.bytes, metadataCid, `${gateway} metadata`);
     let publicMetadata;
     try { publicMetadata = JSON.parse(metadataResponse.bytes.toString("utf8")); } catch { throw new Error(`${gateway} metadata is not valid JSON`); }
+    requireValue(isDeepStrictEqual(publicMetadata, receipt.metadata), `${gateway} metadata differs from receipt.metadata`);
     assertMetadata(publicMetadata, expectedAddress, receipt.imageURI);
     const imageResponse = await fetchBytesChecked(`${gateway}/${imageCid}`, `${gateway} image`, MAX_IMAGE_BYTES, fetchImpl);
     requireValue(imageResponse.contentType === "image/png", `${gateway} image must return image/png, got ${imageResponse.contentType ?? "no content type"}`);

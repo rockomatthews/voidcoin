@@ -98,6 +98,7 @@ scenarios.push(
   { name: "blank transparent logo", block: true, make: async () => fixture({ imageBytes: await png(512, 512, 0) }) },
   { name: "gateway bytes do not match image CID", block: true, make: async () => fixture({ servedImageBytes: await png(513, 513) }) },
   { name: "gateway bytes do not match metadata CID", block: true, make: async () => fixture({ servedMetadataBytes: Buffer.from(JSON.stringify({ wrong: true })) }) },
+  { name: "receipt metadata differs from pinned metadata", block: true, make: async () => { const value = await fixture(); value.receipt.metadata = { ...value.receipt.metadata, description: `${value.receipt.metadata.description} Local-only edit.` }; return value; } },
   { name: "invalid metadata CID", block: true, make: async () => { const value = await fixture(); value.receipt.metadataURI = `ipfs://${"z".repeat(40)}`; return value; } },
 );
 

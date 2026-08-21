@@ -50,7 +50,10 @@ The patched-Forge execution uses chain ID 31337 and no Base Mainnet fork. It con
 live chain state. The separate RPC checks establish activation and Safe presence/configuration; deployment prediction
 must still be rerun immediately before any authorized broadcast.
 
-## Delivery hashes
+## Historical delivery hashes at `ac61d3a`
+
+The independent final retest reproduced all 17 hashes below at `ac61d3a`. N-1 was then fixed in the surface verifier;
+the current verifier, harness, and runbook hashes are recorded in `FINAL_RETEST_REMEDIATION.md`.
 
 ```text
 29be7b5acf3e0e722b322a95adfb6f5920ea36ce57eb162e7b85bf77267c63ad  scripts/publish-b20-genesis.mjs
