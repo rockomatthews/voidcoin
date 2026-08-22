@@ -1,0 +1,19 @@
+{
+  "name": "VOIDCOIN",
+  "symbol": "VOID",
+  "description": "VOIDCOIN is a Robinhood Chain token with immediately available locked Uniswap liquidity. Holders can permanently burn VOID to compete for the community-controlled display identity, artwork, description, and links. The ERC-20 name and ticker remain VOIDCOIN and VOID.",
+  "image": "ipfs://QmSTzmwHa3NiHhEb6EsztuvYkScVnmuts9HkFobpVbbuJu",
+  "decimals": 18,
+  "chain_id": 4663,
+  "website": "https://voidcoin.fun",
+  "properties": {
+    "network": "Robinhood Chain",
+    "chainId": 4663,
+    "launchpad": "hood.dev",
+    "immutableErc20Identity": true,
+    "controllerScope": "display identity and mutable token metadata"
+  },
+  "links": {
+    "website": "https://voidcoin.fun"
+  }
+}

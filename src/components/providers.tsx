@@ -5,11 +5,12 @@ import { useState, type ReactNode } from "react";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { base } from "wagmi/chains";
 import { coinbaseWallet, injected, walletConnect } from "wagmi/connectors";
+import { robinhoodChain } from "@/lib/contract";
 
 const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
 const wagmiConfig = createConfig({
-  chains: [base],
+  chains: [base, robinhoodChain],
   connectors: [
     injected(),
     coinbaseWallet({ appName: "VOIDCOIN", appLogoUrl: "https://voidcoin.fun/voidcoin-logo.png" }),
@@ -17,6 +18,7 @@ const wagmiConfig = createConfig({
   ],
   transports: {
     [base.id]: http(),
+    [robinhoodChain.id]: http(robinhoodChain.rpcUrls.default.http[0]),
   },
   ssr: true,
 });

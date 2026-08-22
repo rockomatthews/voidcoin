@@ -61,8 +61,15 @@ function when(timestamp: number | null) {
 export function ProtocolStats() {
   const contractAddress = configuredTokenAddress();
   const marketVersion = configuredMarketVersion();
+  const hood = marketVersion === "hood";
   const zoraUrl = zoraTradeUrl();
-  const links = contractAddress ? officialTokenLinks(contractAddress) : null;
+  const links = contractAddress ? officialTokenLinks(contractAddress, marketVersion) : null;
+  const addressUrl = (address: string) => hood
+    ? `https://robinhoodchain.blockscout.com/address/${address}`
+    : `https://basescan.org/address/${address}`;
+  const transactionUrl = (hash: string) => hood
+    ? `https://robinhoodchain.blockscout.com/tx/${hash}`
+    : `https://basescan.org/tx/${hash}`;
   const [state, setState] = useState(previewState);
   const [market, setMarket] = useState(previewMarket);
   const [identities, setIdentities] = useState<Identity[]>([]);
@@ -122,12 +129,14 @@ export function ProtocolStats() {
           {contractAddress ? <>
             <div><span>CONTRACT ADDRESS</span><code>{contractAddress}</code></div>
             <nav aria-label="VOIDCOIN links">
-              <a href={links?.explorer} target="_blank" rel="noreferrer">BASESCAN ↗</a>
+              <a href={links?.explorer} target="_blank" rel="noreferrer">{hood ? "BLOCKSCOUT" : "BASESCAN"} ↗</a>
+              {hood && links && "primaryMarket" in links ? <a href={links.primaryMarket} target="_blank" rel="noreferrer">HOOD ↗</a> : null}
               {zoraUrl ? <a href={zoraUrl} target="_blank" rel="noreferrer">ZORA ↗</a> : null}
-              <a href={`https://app.uniswap.org/explore/tokens/base/${contractAddress}`} target="_blank" rel="noreferrer">UNISWAP ↗</a>
+              {!hood ? <a href={`https://app.uniswap.org/explore/tokens/base/${contractAddress}`} target="_blank" rel="noreferrer">UNISWAP ↗</a> : null}
               <a href={links?.dexScreener} target="_blank" rel="noreferrer">DEXSCREENER ↗</a>
-              <a href={links?.baseApp} target="_blank" rel="noreferrer">BASE APP ↗</a>
-              <a href={links?.fomo} target="_blank" rel="noreferrer">FOMO ↗</a>
+              {!hood && links && "baseApp" in links ? <a href={links.baseApp} target="_blank" rel="noreferrer">BASE APP ↗</a> : null}
+              {!hood && links && "fomo" in links ? <a href={links.fomo} target="_blank" rel="noreferrer">FOMO ↗</a> : null}
+              {hood && links && "robinhoodWallet" in links ? <a href={links.robinhoodWallet} target="_blank" rel="noreferrer">ROBINHOOD WALLET ↗</a> : null}
             </nav>
           </> : <div><span>{marketVersion === "b20" ? "B20 V4" : "ZORA V3"} CONTRACT</span><code>NOT BROADCAST</code></div>}
         </div>
@@ -137,9 +146,9 @@ export function ProtocolStats() {
         <div className="section-heading"><span>THE RITUAL</span><h2 id="ritual-heading">HOW IT WORKS</h2></div>
         <div className="ritual-grid">
           <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your {state.symbol} balance.</p></article>
-          <article><b>02</b><h3>Build the next identity</h3><p>Choose the next name, ticker, and image. The proposal stays private during review.</p></article>
+          <article><b>02</b><h3>Build the next identity</h3><p>Choose the next display name, display ticker, and image. The proposal stays private during review.</p></article>
           <article><b>03</b><h3>Beat both rules</h3><p>The first record is 1,000,000 tokens. Every challenger must add at least 250,000 tokens and beat the prior record by 10%. Whichever requirement is larger controls the floor.</p></article>
-          <article><b>04</b><h3>Change everything</h3><p>Once approved, the token image, name, ticker, header, hero, title, and archive update together.</p></article>
+          <article><b>04</b><h3>Change the visible skin</h3><p>Once approved, the token artwork, description, links, site display identity, title, and archive update together.{hood ? " The ERC-20 name and ticker remain VOIDCOIN and VOID for wallet consistency." : ""}</p></article>
         </div>
       </section>
 
@@ -148,7 +157,7 @@ export function ProtocolStats() {
         <p className="section-intro">The wallets that have permanently destroyed the most {state.symbol} in the fight to control its identity.</p>
         <div className="burners-grid">
           {topBurners.length ? topBurners.map((burner, index) => (
-            <article key={burner.wallet}><b>#{index + 1}</b><strong>{formatNumber(burner.tokens)} {state.symbol}</strong><span>{burner.changes} {burner.changes === 1 ? "burn" : "burns"}</span><a href={`https://basescan.org/address/${burner.wallet}`} target="_blank" rel="noreferrer">{shortAddress(burner.wallet)} ↗</a></article>
+            <article key={burner.wallet}><b>#{index + 1}</b><strong>{formatNumber(burner.tokens)} {state.symbol}</strong><span>{burner.changes} {burner.changes === 1 ? "burn" : "burns"}</span><a href={addressUrl(burner.wallet)} target="_blank" rel="noreferrer">{shortAddress(burner.wallet)} ↗</a></article>
           )) : <div className="stats-empty">THE FIRST BURNER WILL APPEAR HERE.</div>}
         </div>
       </section>
@@ -158,7 +167,7 @@ export function ProtocolStats() {
         <div className="changes-table-wrap" tabIndex={0} role="region" aria-label="Latest identity changes table">
           <table><thead><tr><th>When</th><th>Identity</th><th>Burned</th><th>By</th><th>Transactions</th></tr></thead>
             <tbody>{changes.length ? changes.slice(0, 12).map((identity) => (
-              <tr key={identity.burnId}><td>{when(identity.timestamp)}</td><td><strong>{identity.name}</strong> / ${identity.symbol}</td><td>{formatNumber(identity.burnAmount)} {state.symbol}</td><td><a href={`https://basescan.org/address/${identity.burner}`} target="_blank" rel="noreferrer">{shortAddress(identity.burner)}</a></td><td>{identity.burnTransactionHash ? <a href={`https://basescan.org/tx/${identity.burnTransactionHash}`} target="_blank" rel="noreferrer">BURN ↗</a> : null}{identity.transactionHash ? <a href={`https://basescan.org/tx/${identity.transactionHash}`} target="_blank" rel="noreferrer">UPDATE ↗</a> : null}</td></tr>
+              <tr key={identity.burnId}><td>{when(identity.timestamp)}</td><td><strong>{identity.name}</strong> / ${identity.symbol}</td><td>{formatNumber(identity.burnAmount)} {state.symbol}</td><td><a href={addressUrl(identity.burner)} target="_blank" rel="noreferrer">{shortAddress(identity.burner)}</a></td><td>{identity.burnTransactionHash ? <a href={transactionUrl(identity.burnTransactionHash)} target="_blank" rel="noreferrer">BURN ↗</a> : null}{identity.transactionHash ? <a href={transactionUrl(identity.transactionHash)} target="_blank" rel="noreferrer">UPDATE ↗</a> : null}</td></tr>
             )) : <tr><td colSpan={5}>NO IDENTITY CHANGES YET.</td></tr>}</tbody>
           </table>
         </div>

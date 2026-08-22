@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCommitment, parseStrategicBurn, proposalSchema } from "./proposal";
+import { createCommitment, createHoodCommitment, parseStrategicBurn, proposalSchema } from "./proposal";
 
 const wallet = "0x0000000000000000000000000000000000000001" as const;
 const contract = "0x0000000000000000000000000000000000000002" as const;
@@ -19,6 +19,26 @@ describe("proposal validation", () => {
     const input = { chainId: 8453, contractAddress: contract, burnId: 1n, burner: wallet, burnAmount: 1_000_000n * 10n ** 18n, name: "VOIDCOIN", symbol: "VOID", imageHash: hash, metadataURIHash: hash, salt };
     expect(createCommitment(input)).toBe(createCommitment(input));
     expect(createCommitment(input)).not.toBe(createCommitment({ ...input, metadataURIHash: salt }));
+  });
+
+  it("binds every V5 Hood skin field to the controller and Robinhood Chain", () => {
+    const input = {
+      chainId: 4663,
+      controllerAddress: contract,
+      burnId: 1n,
+      burner: wallet,
+      burnAmount: 1_000_000n * 10n ** 18n,
+      name: "NEON VOID",
+      symbol: "NEON",
+      image: "ipfs://image",
+      description: "approved description",
+      socials: '{"website":"https://voidcoin.fun"}',
+      metadataURI: "ipfs://metadata",
+      salt,
+    } as const;
+    expect(createHoodCommitment(input)).toBe(createHoodCommitment(input));
+    expect(createHoodCommitment(input)).not.toBe(createHoodCommitment({ ...input, image: "ipfs://different" }));
+    expect(createHoodCommitment(input)).not.toBe(createHoodCommitment({ ...input, chainId: 8453 }));
   });
 });
 

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState, type CSSProperties } from "react";
 import { BurnTerminal } from "@/components/burn-terminal";
-import { configuredTokenAddress } from "@/lib/contract";
+import { configuredMarketVersion, configuredTokenAddress } from "@/lib/contract";
 import { INITIAL_BURN_REQUIREMENT, TAKEOVER_INCREMENT, TAKEOVER_INCREASE_PERCENT, formatNumber } from "@/lib/site";
 import { liveIdentityFromContract, officialTokenLinks } from "@/lib/token-metadata";
 
@@ -26,7 +26,8 @@ const tunnelPlanes = Array.from({ length: 12 }, (_, index) => ({
 
 export function DynamicIdentityHero() {
   const tokenAddress = configuredTokenAddress();
-  const baseAppUrl = tokenAddress ? officialTokenLinks(tokenAddress).baseApp : null;
+  const marketVersion = configuredMarketVersion();
+  const links = tokenAddress ? officialTokenLinks(tokenAddress, marketVersion) : null;
   const [identity, setIdentity] = useState(genesis);
   const [nextBurn, setNextBurn] = useState(INITIAL_BURN_REQUIREMENT);
 
@@ -64,8 +65,12 @@ export function DynamicIdentityHero() {
           {identity.name} <small>${identity.symbol}</small>
         </a>
         <div className="nav-actions">
-          <span className="network-mark">BASE MAINNET</span>
-          {baseAppUrl ? <a className="nav-market-link" href={baseAppUrl} target="_blank" rel="noreferrer">BUY ON BASE ↗</a> : null}
+          <span className="network-mark">{marketVersion === "hood" ? "ROBINHOOD CHAIN" : "BASE MAINNET"}</span>
+          {marketVersion === "hood" && links && "primaryMarket" in links
+            ? <a className="nav-market-link" href={links.primaryMarket} target="_blank" rel="noreferrer">BUY ON HOOD ↗</a>
+            : links && "baseApp" in links
+              ? <a className="nav-market-link" href={links.baseApp} target="_blank" rel="noreferrer">BUY ON BASE ↗</a>
+              : null}
         </div>
       </nav>
 

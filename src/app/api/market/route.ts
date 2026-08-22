@@ -1,4 +1,4 @@
-import { configuredTokenAddress } from "@/lib/contract";
+import { configuredMarketVersion, configuredTokenAddress } from "@/lib/contract";
 
 interface DexPair {
   chainId?: string;
@@ -12,6 +12,7 @@ interface DexPair {
 
 export async function GET() {
   const address = configuredTokenAddress();
+  const marketVersion = configuredMarketVersion();
   if (!address) return Response.json({ configured: false, priceUsd: null, marketCap: null, liquidityUsd: null, volume24h: null, priceChange24h: null });
 
   try {
@@ -22,7 +23,7 @@ export async function GET() {
     if (!response.ok) throw new Error("Market data unavailable");
     const payload = await response.json() as { pairs?: DexPair[] };
     const pair = (payload.pairs ?? [])
-      .filter((item) => item.chainId === "base")
+      .filter((item) => item.chainId === (marketVersion === "hood" ? "robinhood" : "base"))
       .toSorted((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
     if (!pair) return Response.json({ configured: true, priceUsd: null, marketCap: null, liquidityUsd: null, volume24h: null, priceChange24h: null });
 

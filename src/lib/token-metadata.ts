@@ -6,7 +6,7 @@ export interface TokenMetadata {
 
 export const OFFICIAL_WEBSITE = "https://voidcoin.fun";
 
-export function officialTokenLinks(contractAddress: `0x${string}`) {
+export function officialBaseTokenLinks(contractAddress: `0x${string}`) {
   return {
     website: OFFICIAL_WEBSITE,
     baseApp: `https://base.app/coin/base-mainnet/${contractAddress}`,
@@ -14,6 +14,20 @@ export function officialTokenLinks(contractAddress: `0x${string}`) {
     dexScreener: `https://dexscreener.com/base/${contractAddress}`,
     explorer: `https://basescan.org/token/${contractAddress}`,
   } as const;
+}
+
+export function officialHoodTokenLinks(contractAddress: `0x${string}`) {
+  return {
+    website: OFFICIAL_WEBSITE,
+    primaryMarket: "https://hood.dev",
+    robinhoodWallet: "https://robinhood.com/us/en/support/articles/robinhood-wallet/",
+    dexScreener: `https://dexscreener.com/robinhood/${contractAddress}`,
+    explorer: `https://robinhoodchain.blockscout.com/token/${contractAddress}`,
+  } as const;
+}
+
+export function officialTokenLinks(contractAddress: `0x${string}`, marketVersion: "hood" | "b20" | "unconfigured" = "b20") {
+  return marketVersion === "hood" ? officialHoodTokenLinks(contractAddress) : officialBaseTokenLinks(contractAddress);
 }
 
 export interface DisplayIdentity {
@@ -35,14 +49,20 @@ export function ipfsGatewayUrl(uri: string) {
   return `${gateway}/${cid}`;
 }
 
+export function tokenContentUrl(uri: string) {
+  if (uri.startsWith("https://")) return uri;
+  if (uri.startsWith("ar://")) return `https://arweave.net/${uri.slice(5)}`;
+  return ipfsGatewayUrl(uri);
+}
+
 export async function imageFromTokenURI(uri: string) {
-  const url = ipfsGatewayUrl(uri);
+  const url = tokenContentUrl(uri);
   if (!url) return null;
   try {
     const response = await fetch(url, { next: { revalidate: 30 }, signal: AbortSignal.timeout(12_000) });
     if (!response.ok) return null;
     const metadata = await response.json() as TokenMetadata;
-    return typeof metadata.image === "string" ? ipfsGatewayUrl(metadata.image) : null;
+    return typeof metadata.image === "string" ? tokenContentUrl(metadata.image) : null;
   } catch {
     return null;
   }
@@ -56,7 +76,7 @@ export function approvedTokenMetadata(
   imageURI: string,
   contractAddress: `0x${string}`,
 ) {
-  const links = officialTokenLinks(contractAddress);
+  const links = officialBaseTokenLinks(contractAddress);
   const uniswap = `https://app.uniswap.org/explore/tokens/base/${contractAddress}`;
   return {
     interop: { erc1046: true, erc7572: true },
@@ -92,6 +112,37 @@ export function approvedTokenMetadata(
       standard: "B20",
       uniswap,
       ...links,
+    },
+  } as const;
+}
+
+export function approvedHoodTokenMetadata(
+  name: string,
+  symbol: string,
+  imageURI: string,
+  contractAddress: `0x${string}`,
+) {
+  const links = officialHoodTokenLinks(contractAddress);
+  return {
+    name,
+    symbol,
+    image: imageURI,
+    description: `${name} ($${symbol}) is the current community-controlled display identity of VOIDCOIN on Robinhood Chain. Record holders can change the artwork, description, links, and website identity after an approved permanent burn. The immutable ERC-20 identity remains VOIDCOIN (VOID).`,
+    decimals: 18,
+    external_url: OFFICIAL_WEBSITE,
+    website: OFFICIAL_WEBSITE,
+    chain_id: 4663,
+    contract_address: contractAddress,
+    links,
+    properties: {
+      network: "Robinhood Chain",
+      chainId: 4663,
+      contractAddress,
+      launchpad: "hood.dev",
+      immutableErc20Name: "VOIDCOIN",
+      immutableErc20Symbol: "VOID",
+      displayName: name,
+      displaySymbol: symbol,
     },
   } as const;
 }

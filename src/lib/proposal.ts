@@ -33,6 +33,21 @@ export interface CommitmentInput {
   salt: Hex;
 }
 
+export interface HoodCommitmentInput {
+  chainId: number;
+  controllerAddress: Address;
+  burnId: bigint;
+  burner: Address;
+  burnAmount: bigint;
+  name: string;
+  symbol: string;
+  image: string;
+  description: string;
+  socials: string;
+  metadataURI: string;
+  salt: Hex;
+}
+
 export function parseStrategicBurn(input: string, minimum: bigint, maximum: bigint): bigint {
   if (!/^\d+$/.test(input)) throw new Error("Burn amount must be a whole number of VOID");
   const amount = parseUnits(input, 18);
@@ -55,6 +70,36 @@ export function createCommitment(input: CommitmentInput): Hex {
         input.symbol,
         input.imageHash,
         input.metadataURIHash,
+        input.salt,
+      ],
+    ),
+  );
+}
+
+export function createHoodCommitment(input: HoodCommitmentInput): Hex {
+  const skinHash = keccak256(
+    encodeAbiParameters(
+      parseAbiParameters("string name, string symbol, bytes32 imageHash, bytes32 descriptionHash, bytes32 socialsHash, bytes32 metadataURIHash"),
+      [
+        input.name,
+        input.symbol,
+        keccak256(new TextEncoder().encode(input.image)),
+        keccak256(new TextEncoder().encode(input.description)),
+        keccak256(new TextEncoder().encode(input.socials)),
+        keccak256(new TextEncoder().encode(input.metadataURI)),
+      ],
+    ),
+  );
+  return keccak256(
+    encodeAbiParameters(
+      parseAbiParameters("uint256 chainId, address controller, uint256 burnId, address burner, uint256 burnAmount, bytes32 skinHash, bytes32 salt"),
+      [
+        BigInt(input.chainId),
+        input.controllerAddress,
+        input.burnId,
+        input.burner,
+        input.burnAmount,
+        skinHash,
         input.salt,
       ],
     ),

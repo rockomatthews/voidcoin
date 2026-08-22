@@ -1,6 +1,6 @@
 import { get } from "@vercel/blob";
-import { configuredTokenAddress } from "@/lib/contract";
-import { approvedTokenMetadata } from "@/lib/token-metadata";
+import { configuredMarketVersion, configuredTokenAddress } from "@/lib/contract";
+import { approvedHoodTokenMetadata, approvedTokenMetadata, OFFICIAL_WEBSITE } from "@/lib/token-metadata";
 
 async function pinFile(bytes: Uint8Array, filename: string, contentType: string) {
   const jwt = process.env.PINATA_JWT;
@@ -35,9 +35,18 @@ export async function publishApprovedMetadata(input: { blobUrl: string; name: st
   const bytes = new Uint8Array(await new Response(stored.stream).arrayBuffer());
   const file = await pinFile(bytes, `voidcoin-${input.requestId}`, stored.blob.contentType ?? "application/octet-stream");
   const imageURI = `ipfs://${file.IpfsHash}`;
+  const hood = configuredMarketVersion() === "hood";
+  const metadataValue = hood
+    ? approvedHoodTokenMetadata(input.name, input.symbol, imageURI, contractAddress)
+    : approvedTokenMetadata(input.name, input.symbol, imageURI, contractAddress);
   const metadata = await pinJson(
-    approvedTokenMetadata(input.name, input.symbol, imageURI, contractAddress),
+    metadataValue,
     `voidcoin-${input.requestId}-metadata`,
   );
-  return { metadataURI: `ipfs://${metadata.IpfsHash}`, imageURI };
+  return {
+    metadataURI: `ipfs://${metadata.IpfsHash}`,
+    imageURI,
+    description: metadataValue.description,
+    socials: JSON.stringify({ website: OFFICIAL_WEBSITE }),
+  };
 }

@@ -1,5 +1,13 @@
-import { getAddress, isAddress } from "viem";
+import { defineChain, getAddress, isAddress } from "viem";
 import { base } from "viem/chains";
+
+export const robinhoodChain = defineChain({
+  id: 4663,
+  name: "Robinhood Chain",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com"] } },
+  blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } },
+});
 
 export const MAINNET_VOIDCOIN_ADDRESS = "0xF6508F41851E1E956113b31571E67A315D0832A4" as const;
 export const MAINNET_ZORA_VOID_ADDRESS = "0x4A64F213558Fb0188e3FC48918948EC590A66733" as const;
@@ -122,10 +130,57 @@ export const voidTokenAbi = [
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "tokenURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "contractURI", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "image", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
+] as const;
+
+export const hoodSkinControllerAbi = [
+  ...voidSkinControllerAbi.filter((item) => item.type !== "function" || item.name !== "approveRename"),
+  { type: "function", name: "displayName", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "displaySymbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  {
+    type: "function",
+    name: "skinHash",
+    stateMutability: "pure",
+    inputs: [{
+      name: "proposal",
+      type: "tuple",
+      components: [
+        { name: "displayName", type: "string" },
+        { name: "displaySymbol", type: "string" },
+        { name: "image", type: "string" },
+        { name: "description", type: "string" },
+        { name: "socials", type: "string" },
+        { name: "metadataURI", type: "string" },
+      ],
+    }],
+    outputs: [{ type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "approveRename",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "burnId", type: "uint256" },
+      {
+        name: "proposal",
+        type: "tuple",
+        components: [
+          { name: "displayName", type: "string" },
+          { name: "displaySymbol", type: "string" },
+          { name: "image", type: "string" },
+          { name: "description", type: "string" },
+          { name: "socials", type: "string" },
+          { name: "metadataURI", type: "string" },
+        ],
+      },
+      { name: "salt", type: "bytes32" },
+    ],
+    outputs: [],
+  },
 ] as const;
 
 export const zoraContentCoinAbi = voidTokenAbi;
@@ -172,11 +227,11 @@ export const uniswapQuoterV2Abi = [
 ] as const;
 
 export function configuredChainId() {
-  return base.id;
+  return configuredChain().id;
 }
 
 export function configuredChain() {
-  return base;
+  return process.env.NEXT_PUBLIC_VOID_HOOD_TOKEN ? robinhoodChain : base;
 }
 
 export function configuredContractAddress() {
@@ -184,12 +239,12 @@ export function configuredContractAddress() {
 }
 
 export function configuredTokenAddress() {
-  const b20Address = process.env.NEXT_PUBLIC_VOID_B20_ADDRESS;
-  return b20Address && isAddress(b20Address) ? getAddress(b20Address) : null;
+  const address = process.env.NEXT_PUBLIC_VOID_HOOD_TOKEN ?? process.env.NEXT_PUBLIC_VOID_B20_ADDRESS;
+  return address && isAddress(address) ? getAddress(address) : null;
 }
 
 export function configuredControllerAddress() {
-  const address = process.env.NEXT_PUBLIC_VOID_B20_CONTROLLER_ADDRESS;
+  const address = process.env.NEXT_PUBLIC_VOID_HOOD_CONTROLLER ?? process.env.NEXT_PUBLIC_VOID_B20_CONTROLLER_ADDRESS;
   return address && isAddress(address) ? getAddress(address) : null;
 }
 
@@ -199,7 +254,12 @@ export function configuredV2BuyRouterAddress() {
 }
 
 export function configuredMarketVersion() {
+  if (process.env.NEXT_PUBLIC_VOID_HOOD_TOKEN) return "hood";
   return configuredTokenAddress() ? "b20" : "unconfigured";
+}
+
+export function configuredExplorerName() {
+  return configuredMarketVersion() === "hood" ? "ROBINHOOD BLOCKSCOUT" : "BASESCAN";
 }
 
 export function configuredMetadataFunction() {

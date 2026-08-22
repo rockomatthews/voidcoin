@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { approvedTokenMetadata, ipfsGatewayUrl, liveIdentityFromContract, officialTokenLinks } from "./token-metadata";
+import { approvedHoodTokenMetadata, approvedTokenMetadata, ipfsGatewayUrl, liveIdentityFromContract, officialTokenLinks } from "./token-metadata";
 
 const originalGateway = process.env.PINATA_GATEWAY;
 
@@ -42,6 +42,20 @@ describe("token identity metadata", () => {
       fomo: `https://fomo.family/tokens/base/${address}`,
       dexScreener: `https://dexscreener.com/base/${address}`,
       explorer: `https://basescan.org/token/${address}`,
+    });
+  });
+
+  it("publishes Robinhood Chain launchpad and wallet discovery routes without claiming a brokerage listing", () => {
+    const address = "0x1111111111111111111111111111111111111111";
+    const metadata = approvedHoodTokenMetadata("Night Shift", "NIGHT", "ipfs://image-cid", address);
+    expect(metadata).toMatchObject({ chain_id: 4663, contract_address: address });
+    expect(metadata.description).toContain("immutable ERC-20 identity remains VOIDCOIN (VOID)");
+    expect(officialTokenLinks(address, "hood")).toEqual({
+      website: "https://voidcoin.fun",
+      primaryMarket: "https://hood.dev",
+      robinhoodWallet: "https://robinhood.com/us/en/support/articles/robinhood-wallet/",
+      dexScreener: `https://dexscreener.com/robinhood/${address}`,
+      explorer: `https://robinhoodchain.blockscout.com/token/${address}`,
     });
   });
 

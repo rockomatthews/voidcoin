@@ -1,5 +1,5 @@
 import { formatUnits } from "viem";
-import { configuredControllerAddress, configuredMarketVersion, configuredMetadataFunction, configuredTokenAddress, voidSkinControllerAbi, voidTokenAbi } from "@/lib/contract";
+import { configuredControllerAddress, configuredMarketVersion, configuredMetadataFunction, configuredTokenAddress, hoodSkinControllerAbi, voidSkinControllerAbi, voidTokenAbi } from "@/lib/contract";
 import { getPublicClient } from "@/lib/chain";
 import { INITIAL_BURN_REQUIREMENT, INITIAL_TOKEN_NAME, INITIAL_TOKEN_SYMBOL, MAX_STRATEGIC_PREMIUM, ORIGINAL_SUPPLY } from "@/lib/site";
 import { imageFromTokenURI } from "@/lib/token-metadata";
@@ -48,12 +48,16 @@ export async function GET() {
     }
 
     const [name, symbol, supply, burned, paused, ready, slot, uri, record, nextRequirement, maximumBurn, recordHolder, controllerToken] = await Promise.all([
-      client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "name" }),
-      client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "symbol" }),
+      marketVersion === "hood"
+        ? client.readContract({ address: controllerAddress, abi: hoodSkinControllerAbi, functionName: "displayName" })
+        : client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "name" }),
+      marketVersion === "hood"
+        ? client.readContract({ address: controllerAddress, abi: hoodSkinControllerAbi, functionName: "displaySymbol" })
+        : client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "symbol" }),
       client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "totalSupply" }),
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "destroyedSupply" }),
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "renamePaused" }),
-      marketVersion === "b20"
+      marketVersion === "b20" || marketVersion === "hood"
         ? client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "controllerReady" })
         : Promise.resolve(true),
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "activeSlot" }),
@@ -65,7 +69,7 @@ export async function GET() {
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "token" }),
     ]);
     if (controllerToken.toLowerCase() !== tokenAddress.toLowerCase()) {
-      return Response.json({ error: "Configured controller does not govern the configured B20 token" }, { status: 503 });
+      return Response.json({ error: "Configured controller does not govern the configured token" }, { status: 503 });
     }
     const image = await imageFromTokenURI(uri);
     return Response.json({
@@ -91,6 +95,6 @@ export async function GET() {
       activeSlot: slot.burner === "0x0000000000000000000000000000000000000000" ? null : { burnId: slot.burnId.toString(), burner: slot.burner, burnAmount: Number(formatUnits(slot.burnAmount, 18)), commitment: slot.commitment, openedAt: Number(slot.openedAt), lockedUntil: Number(slot.lockedUntil) },
     }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15" } });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Could not read Base state" }, { status: 502 });
+    return Response.json({ error: error instanceof Error ? error.message : "Could not read chain state" }, { status: 502 });
   }
 }
