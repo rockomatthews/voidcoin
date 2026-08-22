@@ -8,9 +8,12 @@ import { officialTokenLinks } from "@/lib/token-metadata";
 interface ChainState {
   name: string;
   symbol: string;
+  immutableName: string;
+  immutableSymbol: string;
   originalSupply: number;
   currentSupply: number;
   burned: number;
+  contestBurned: number;
   recordBurn: number;
   nextBurnAmount: number;
   recordBurner: string | null;
@@ -46,7 +49,7 @@ interface MarketState {
   priceChange24h: number | null;
 }
 
-const previewState: ChainState = { name: "VOIDCOIN", symbol: "VOID", originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null, controllerConfigured: false, renamePaused: true };
+const previewState: ChainState = { name: "VOIDCOIN", symbol: "VOID", immutableName: "VOIDCOIN", immutableSymbol: "VOID", originalSupply: 1_000_000_000, currentSupply: 1_000_000_000, burned: 0, contestBurned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, recordBurner: null, controllerConfigured: false, renamePaused: true };
 const previewMarket: MarketState = { priceUsd: null, marketCap: null, liquidityUsd: null, volume24h: null, priceChange24h: null };
 
 function usd(value: number | null) {
@@ -111,6 +114,7 @@ export function ProtocolStats() {
     <>
       <section className="stats-band" aria-label={`${state.name} supply statistics`}>
         <article><span>BURNED FOREVER</span><strong>{formatNumber(state.burned)}</strong><small>{((state.burned / state.originalSupply) * 100).toFixed(3)}% OF ORIGINAL SUPPLY</small></article>
+        <article><span>CONTEST BURNS</span><strong>{formatNumber(state.contestBurned)}</strong><small>PERMANENTLY DESTROYED BY IDENTITY CHALLENGERS</small></article>
         <article><span>DESTROYED VALUE</span><strong>{usd(burnedValue)}</strong><small>{market.priceUsd === null ? "WAITING FOR MARKET INDEXING" : `AT ${usd(market.priceUsd)} PER TOKEN`}</small></article>
         <article><span>CURRENT SUPPLY</span><strong>{formatNumber(state.currentSupply)}</strong><small>OUT OF {formatNumber(state.originalSupply)} MINTED</small></article>
       </section>
@@ -130,13 +134,14 @@ export function ProtocolStats() {
             <div><span>CONTRACT ADDRESS</span><code>{contractAddress}</code></div>
             <nav aria-label="VOIDCOIN links">
               <a href={links?.explorer} target="_blank" rel="noreferrer">{hood ? "BLOCKSCOUT" : "BASESCAN"} ↗</a>
-              {hood && links && "primaryMarket" in links ? <a href={links.primaryMarket} target="_blank" rel="noreferrer">HOOD ↗</a> : null}
+              {hood && links && "fomo" in links ? <a href={links.fomo} target="_blank" rel="noreferrer">BUY ON FOMO ↗</a> : null}
+              {hood && links && "hoodTerminal" in links ? <a href={links.hoodTerminal} target="_blank" rel="noreferrer">HOOD TERMINAL ↗</a> : null}
               {zoraUrl ? <a href={zoraUrl} target="_blank" rel="noreferrer">ZORA ↗</a> : null}
               {!hood ? <a href={`https://app.uniswap.org/explore/tokens/base/${contractAddress}`} target="_blank" rel="noreferrer">UNISWAP ↗</a> : null}
               <a href={links?.dexScreener} target="_blank" rel="noreferrer">DEXSCREENER ↗</a>
               {!hood && links && "baseApp" in links ? <a href={links.baseApp} target="_blank" rel="noreferrer">BASE APP ↗</a> : null}
               {!hood && links && "fomo" in links ? <a href={links.fomo} target="_blank" rel="noreferrer">FOMO ↗</a> : null}
-              {hood && links && "robinhoodWallet" in links ? <a href={links.robinhoodWallet} target="_blank" rel="noreferrer">ROBINHOOD WALLET ↗</a> : null}
+              {hood && links && "walletHelp" in links ? <a href={links.walletHelp} target="_blank" rel="noreferrer">WALLET HELP ↗</a> : null}
             </nav>
           </> : <div><span>{marketVersion === "b20" ? "B20 V4" : "ZORA V3"} CONTRACT</span><code>NOT BROADCAST</code></div>}
         </div>
@@ -145,19 +150,20 @@ export function ProtocolStats() {
       <section className="ritual-section" aria-labelledby="ritual-heading">
         <div className="section-heading"><span>THE RITUAL</span><h2 id="ritual-heading">HOW IT WORKS</h2></div>
         <div className="ritual-grid">
-          <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your {state.symbol} balance.</p></article>
+          <article><b>01</b><h3>Connect where it matters</h3><p>Open the identity chamber, connect your wallet, and see your {state.immutableSymbol} balance.</p></article>
           <article><b>02</b><h3>Build the next identity</h3><p>Choose the next display name, display ticker, and image. The proposal stays private during review.</p></article>
           <article><b>03</b><h3>Beat both rules</h3><p>The first record is 1,000,000 tokens. Every challenger must add at least 250,000 tokens and beat the prior record by 10%. Whichever requirement is larger controls the floor.</p></article>
-          <article><b>04</b><h3>Change the visible skin</h3><p>Once approved, the token artwork, description, links, site display identity, title, and archive update together.{hood ? " The ERC-20 name and ticker remain VOIDCOIN and VOID for wallet consistency." : ""}</p></article>
+          <article><b>04</b><h3>Change the visible skin</h3><p>Once approved, the token artwork, description, links, site display identity, title, and archive update together.{hood ? ` This never changes the token identity shown by wallets and exchanges: ${state.immutableName} (${state.immutableSymbol}).` : ""}</p></article>
         </div>
+        {hood ? <p className="section-intro"><strong>TRUST DISCLOSURE:</strong> The Safe can pause the controller and permanently transfer metadata control only when no identity slot is active. That ends the burn contest permanently; prior burns remain destroyed and are not refundable.</p> : null}
       </section>
 
       <section className="burners-section" aria-labelledby="burners-heading">
         <div className="section-heading"><span>HALL OF FAME</span><h2 id="burners-heading">TOP BURNERS</h2></div>
-        <p className="section-intro">The wallets that have permanently destroyed the most {state.symbol} in the fight to control its identity.</p>
+        <p className="section-intro">The wallets that have permanently destroyed the most {state.immutableSymbol} in the fight to control its identity.</p>
         <div className="burners-grid">
           {topBurners.length ? topBurners.map((burner, index) => (
-            <article key={burner.wallet}><b>#{index + 1}</b><strong>{formatNumber(burner.tokens)} {state.symbol}</strong><span>{burner.changes} {burner.changes === 1 ? "burn" : "burns"}</span><a href={addressUrl(burner.wallet)} target="_blank" rel="noreferrer">{shortAddress(burner.wallet)} ↗</a></article>
+            <article key={burner.wallet}><b>#{index + 1}</b><strong>{formatNumber(burner.tokens)} {state.immutableSymbol}</strong><span>{burner.changes} {burner.changes === 1 ? "burn" : "burns"}</span><a href={addressUrl(burner.wallet)} target="_blank" rel="noreferrer">{shortAddress(burner.wallet)} ↗</a></article>
           )) : <div className="stats-empty">THE FIRST BURNER WILL APPEAR HERE.</div>}
         </div>
       </section>
@@ -167,7 +173,7 @@ export function ProtocolStats() {
         <div className="changes-table-wrap" tabIndex={0} role="region" aria-label="Latest identity changes table">
           <table><thead><tr><th>When</th><th>Identity</th><th>Burned</th><th>By</th><th>Transactions</th></tr></thead>
             <tbody>{changes.length ? changes.slice(0, 12).map((identity) => (
-              <tr key={identity.burnId}><td>{when(identity.timestamp)}</td><td><strong>{identity.name}</strong> / ${identity.symbol}</td><td>{formatNumber(identity.burnAmount)} {state.symbol}</td><td><a href={addressUrl(identity.burner)} target="_blank" rel="noreferrer">{shortAddress(identity.burner)}</a></td><td>{identity.burnTransactionHash ? <a href={transactionUrl(identity.burnTransactionHash)} target="_blank" rel="noreferrer">BURN ↗</a> : null}{identity.transactionHash ? <a href={transactionUrl(identity.transactionHash)} target="_blank" rel="noreferrer">UPDATE ↗</a> : null}</td></tr>
+              <tr key={identity.burnId}><td>{when(identity.timestamp)}</td><td><strong>{identity.name}</strong> / ${identity.symbol}</td><td>{formatNumber(identity.burnAmount)} {state.immutableSymbol}</td><td><a href={addressUrl(identity.burner)} target="_blank" rel="noreferrer">{shortAddress(identity.burner)}</a></td><td>{identity.burnTransactionHash ? <a href={transactionUrl(identity.burnTransactionHash)} target="_blank" rel="noreferrer">BURN ↗</a> : null}{identity.transactionHash ? <a href={transactionUrl(identity.transactionHash)} target="_blank" rel="noreferrer">UPDATE ↗</a> : null}</td></tr>
             )) : <tr><td colSpan={5}>NO IDENTITY CHANGES YET.</td></tr>}</tbody>
           </table>
         </div>

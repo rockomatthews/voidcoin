@@ -104,7 +104,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (slot.commitment.toLowerCase() !== proposal.commitment.toLowerCase()) {
         return Response.json({ error: "The burner must authorize the final IPFS metadata commitment before Safe approval." }, { status: 409 });
       }
-      const lockCalldata = encodeFunctionData({ abi: voidSkinControllerAbi, functionName: "lockRenameSlot", args: [proposal.burnId] });
+      const lockCalldata = hood
+        ? encodeFunctionData({
+            abi: hoodSkinControllerAbi,
+            functionName: "lockRenameSlot",
+            args: [proposal.burnId, proposal.commitment as `0x${string}`],
+          })
+        : encodeFunctionData({ abi: voidSkinControllerAbi, functionName: "lockRenameSlot", args: [proposal.burnId] });
       const calldata = hood
         ? proposal.safeCalldata
         : encodeFunctionData({

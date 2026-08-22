@@ -13,7 +13,7 @@ export default function Home() {
 
       <IdentityGallery />
 
-      <footer className="void-footer"><span>SKIN MUTABLE / {hood ? "ROBINHOOD CHAIN" : "BASE MAINNET"}</span><a href="/admin">MODERATOR</a></footer>
+      <footer className="void-footer"><span>SKIN MUTABLE / {hood ? "TOKEN FIXED: VOIDCOIN (VOID) / ROBINHOOD CHAIN" : "BASE MAINNET"}</span><a href="/admin">MODERATOR</a></footer>
     </main>
   );
 }

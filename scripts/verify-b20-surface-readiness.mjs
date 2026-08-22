@@ -140,8 +140,8 @@ async function assertLogo(imageBytes, gateway) {
   return image;
 }
 
-export async function verifySurfaceReceipt({ receipt, expectedAddress, fetchImpl = fetch }) {
-  assertMetadata(receipt.metadata, expectedAddress, receipt.imageURI);
+export async function verifySurfaceReceipt({ receipt, expectedAddress, fetchImpl = fetch, assertMetadataFn = assertMetadata }) {
+  assertMetadataFn(receipt.metadata, expectedAddress, receipt.imageURI);
   const metadataCid = ipfsCid(receipt.metadataURI, "receipt.metadataURI");
   const imageCid = ipfsCid(receipt.imageURI, "receipt.imageURI");
   requireValue(receipt.metadata.image === receipt.imageURI, "Receipt metadata image URI mismatch");
@@ -153,7 +153,7 @@ export async function verifySurfaceReceipt({ receipt, expectedAddress, fetchImpl
     let publicMetadata;
     try { publicMetadata = JSON.parse(metadataResponse.bytes.toString("utf8")); } catch { throw new Error(`${gateway} metadata is not valid JSON`); }
     requireValue(isDeepStrictEqual(publicMetadata, receipt.metadata), `${gateway} metadata differs from receipt.metadata`);
-    assertMetadata(publicMetadata, expectedAddress, receipt.imageURI);
+    assertMetadataFn(publicMetadata, expectedAddress, receipt.imageURI);
     const imageResponse = await fetchBytesChecked(`${gateway}/${imageCid}`, `${gateway} image`, MAX_IMAGE_BYTES, fetchImpl);
     requireValue(imageResponse.contentType === "image/png", `${gateway} image must return image/png, got ${imageResponse.contentType ?? "no content type"}`);
     await assertBytesMatchCid(imageResponse.bytes, imageCid, `${gateway} image`);

@@ -44,9 +44,9 @@ export function BurnTerminal() {
     const controller = new AbortController();
     fetch("/api/state", { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("state unavailable")))
-      .then((state: { symbol?: string; nextBurnAmount?: number; maximumBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
+      .then((state: { symbol?: string; immutableSymbol?: string; nextBurnAmount?: number; maximumBurnAmount?: number; activeSlot?: { burner: string } | null }) => {
         const nextMinimum = state.nextBurnAmount ?? INITIAL_BURN_REQUIREMENT;
-        if (state.symbol) setTokenSymbol(state.symbol);
+        if (state.immutableSymbol ?? state.symbol) setTokenSymbol(state.immutableSymbol ?? state.symbol!);
         setRequiredBurn(nextMinimum);
         setMaximumBurn(state.maximumBurnAmount ?? nextMinimum + MAX_STRATEGIC_PREMIUM);
         setBurnAmount(String(nextMinimum));
@@ -60,7 +60,9 @@ export function BurnTerminal() {
     const controller = new AbortController();
     const loadIdentity = () => fetch("/api/state", { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("state unavailable")))
-      .then((state: { symbol?: string }) => { if (state.symbol) setTokenSymbol(state.symbol); })
+      .then((state: { symbol?: string; immutableSymbol?: string }) => {
+        if (state.immutableSymbol ?? state.symbol) setTokenSymbol(state.immutableSymbol ?? state.symbol!);
+      })
       .catch(() => undefined);
     void loadIdentity();
     const interval = window.setInterval(loadIdentity, 10_000);
@@ -149,9 +151,9 @@ export function BurnTerminal() {
           setMessage(`Approve exactly ${formatNumber(Number(burnAmountWei / 10n ** 18n))} ${tokenSymbol}. The final metadata is already pinned; approval alone does not burn.`);
           const approvalHash = await writeContractAsync({ address: tokenAddress!, abi: voidTokenAbi, functionName: "approve", args: [controllerAddress, burnAmountWei], chainId: targetChainId });
           const approvalReceipt = await publicClient.waitForTransactionReceipt({ hash: approvalHash });
-          if (approvalReceipt.status !== "success") throw new Error("Token approval reverted on Base");
+          if (approvalReceipt.status !== "success") throw new Error("Token approval reverted on the configured chain");
         }
-        setMessage(`Confirm the permanent native B20 burn. The final metadata is already approved and pinned. The Safe must finalize within 72 hours.`);
+        setMessage(`Confirm the permanent token burn. The final metadata is already approved and pinned. The Safe must finalize within 72 hours.`);
       } else {
         setMessage("Confirm the pre-approved replacement commitment. No additional burn is required.");
       }
@@ -160,7 +162,7 @@ export function BurnTerminal() {
         : await writeContractAsync({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "burnForRename", args: [BigInt(authorization.burnId), burnAmountWei, authorization.commitment], chainId: targetChainId });
       setPhase("confirming");
       const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
-      if (receipt.status !== "success") throw new Error("The approved commitment reverted on Base");
+      if (receipt.status !== "success") throw new Error("The approved commitment reverted on the configured chain");
       const response = await fetch(`/api/requests/${authorization.id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash, mode: authorization.submissionMode }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Final metadata authorization could not be verified");
@@ -202,14 +204,14 @@ export function BurnTerminal() {
       </div>
       <div className="field-grid">
         <label>
-          <span>NEW NAME</span>
+          <span>NEW DISPLAY NAME — SITE/PROFILE ONLY</span>
           <input name="name" required maxLength={15} pattern="[A-Za-z0-9]+( [A-Za-z0-9]+)*" placeholder="NIGHT SHIFT" autoComplete="off" />
           <small>1–15 letters or numbers, single spaces only.</small>
         </label>
         <label>
-          <span>NEW TICKER</span>
+          <span>NEW DISPLAY TICKER — SITE/PROFILE ONLY</span>
           <div className="ticker-input"><b>$</b><input name="symbol" required maxLength={10} pattern="[A-Za-z0-9]+" placeholder="NIGHT" autoComplete="off" /></div>
-          <small>1–10 letters or numbers, case-sensitive.</small>
+          <small>This does not change the token ticker shown by wallets or exchanges.</small>
         </label>
         <label>
           <span>STATUS EMAIL <em>OPTIONAL</em></span>
@@ -229,7 +231,7 @@ export function BurnTerminal() {
       </div>
       <label className="burn-warning">
         <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
-        <span><strong>SUBMISSION DOES NOT BURN.</strong> If moderation approves and pins the final metadata, you will review a separate permanent burn transaction. Once executed, that burn cannot be refunded and the Safe has 72 hours to finalize it.</span>
+        <span><strong>SUBMISSION DOES NOT BURN.</strong> If moderation approves and pins the final metadata, you will review a separate permanent burn transaction. Wallets and exchanges always show the immutable token as VOIDCOIN (VOID); only the site/profile display skin changes. Once executed, the burn cannot be refunded. The Safe has 72 hours to finalize it and can permanently end the contest only while paused with no active slot.</span>
       </label>
       <div className={`terminal-status phase-${phase}`} aria-live="polite"><span />{message}</div>
       {authorization ? <button className="primary-action" type="button" onClick={executeApprovedProposal} disabled={phase === "burning" || phase === "confirming"}>{authorization.submissionMode === "burn" ? "BURN FOR" : "AUTHORIZE"} APPROVED {authorization.proposedName} / ${authorization.proposedSymbol}</button> : null}

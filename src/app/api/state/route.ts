@@ -10,7 +10,7 @@ export async function GET() {
   const marketVersion = configuredMarketVersion();
   const metadataFunction = configuredMetadataFunction();
   if (!tokenAddress) {
-    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, image: "/voidcoin-logo.png", tokenURI: null, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM, recordBurner: null, renamePaused: true, activeSlot: null, message: "Base Mainnet deployment pending" });
+    return Response.json({ mode: "preview", configured: false, name: INITIAL_TOKEN_NAME, symbol: INITIAL_TOKEN_SYMBOL, immutableName: INITIAL_TOKEN_NAME, immutableSymbol: INITIAL_TOKEN_SYMBOL, image: "/voidcoin-logo.png", tokenURI: null, originalSupply: ORIGINAL_SUPPLY, currentSupply: ORIGINAL_SUPPLY, burned: 0, contestBurned: 0, recordBurn: 0, nextBurnAmount: INITIAL_BURN_REQUIREMENT, maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM, recordBurner: null, renamePaused: true, activeSlot: null, message: "Deployment pending" });
   }
 
   try {
@@ -32,11 +32,14 @@ export async function GET() {
         controllerAddress: null,
         name,
         symbol,
+        immutableName: name,
+        immutableSymbol: symbol,
         tokenURI: uri,
         image,
         originalSupply: ORIGINAL_SUPPLY,
         currentSupply: Number(formatUnits(supply, 18)),
         burned: 0,
+        contestBurned: 0,
         recordBurn: 0,
         nextBurnAmount: INITIAL_BURN_REQUIREMENT,
         maximumBurnAmount: INITIAL_BURN_REQUIREMENT + MAX_STRATEGIC_PREMIUM,
@@ -47,15 +50,18 @@ export async function GET() {
       }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15" } });
     }
 
-    const [name, symbol, supply, burned, paused, ready, slot, uri, record, nextRequirement, maximumBurn, recordHolder, controllerToken] = await Promise.all([
+    const [name, symbol, immutableName, immutableSymbol, supply, burned, contestBurned, paused, ready, slot, uri, record, nextRequirement, maximumBurn, recordHolder, controllerToken] = await Promise.all([
       marketVersion === "hood"
         ? client.readContract({ address: controllerAddress, abi: hoodSkinControllerAbi, functionName: "displayName" })
         : client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "name" }),
       marketVersion === "hood"
         ? client.readContract({ address: controllerAddress, abi: hoodSkinControllerAbi, functionName: "displaySymbol" })
         : client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "symbol" }),
+      client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "name" }),
+      client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "symbol" }),
       client.readContract({ address: tokenAddress, abi: voidTokenAbi, functionName: "totalSupply" }),
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "destroyedSupply" }),
+      client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "contestBurned" }),
       client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "renamePaused" }),
       marketVersion === "b20" || marketVersion === "hood"
         ? client.readContract({ address: controllerAddress, abi: voidSkinControllerAbi, functionName: "controllerReady" })
@@ -81,11 +87,14 @@ export async function GET() {
       controllerAddress,
       name,
       symbol,
+      immutableName,
+      immutableSymbol,
       tokenURI: uri,
       image,
       originalSupply: ORIGINAL_SUPPLY,
       currentSupply: Number(formatUnits(supply, 18)),
       burned: Number(formatUnits(burned, 18)),
+      contestBurned: Number(formatUnits(contestBurned, 18)),
       recordBurn: Number(formatUnits(record, 18)),
       nextBurnAmount: Number(formatUnits(nextRequirement, 18)),
       maximumBurnAmount: Number(formatUnits(maximumBurn, 18)),

@@ -233,10 +233,10 @@ contract VOIDHoodSkinController is Ownable2Step, ReentrancyGuard {
         emit CommitmentReplaced(slot.burnId, slot.burner, newCommitment);
     }
 
-    function lockRenameSlot(uint256 burnId) external onlyOwner {
+    function lockRenameSlot(uint256 burnId, bytes32 expectedCommitment) external onlyOwner {
         RenameSlot memory slot = _activeSlot;
         if (slot.burner == address(0)) revert NoActiveSlot();
-        if (slot.burnId != burnId) revert CommitmentMismatch();
+        if (slot.burnId != burnId || slot.commitment != expectedCommitment) revert CommitmentMismatch();
         if (block.timestamp > slot.openedAt + SLOT_TTL) revert SlotExpired();
         if (slot.lockedUntil != 0 && block.timestamp <= slot.lockedUntil) revert AlreadyLocked();
         uint64 lockedUntil = uint64(block.timestamp + APPROVAL_LOCK_DURATION);
@@ -285,7 +285,7 @@ contract VOIDHoodSkinController is Ownable2Step, ReentrancyGuard {
         if (bytes(proposal.description).length == 0 || bytes(proposal.description).length > 2_048) {
             revert InvalidDescription();
         }
-        if (bytes(proposal.socials).length == 0 || bytes(proposal.socials).length > 1_024) revert InvalidSocials();
+        if (!_validSocials(bytes(proposal.socials))) revert InvalidSocials();
         if (bytes(proposal.metadataURI).length == 0 || bytes(proposal.metadataURI).length > 512) {
             revert InvalidMetadataURI();
         }
@@ -345,5 +345,43 @@ contract VOIDHoodSkinController is Ownable2Step, ReentrancyGuard {
             if (!alphanumeric) return false;
         }
         return true;
+    }
+
+    /// @dev Deliberately accepts only a compact JSON object of HTTPS string links.
+    ///      The website publishes this exact shape with JSON.stringify.
+    function _validSocials(bytes memory value) private pure returns (bool) {
+        uint256 length = value.length;
+        if (length < 2 || length > 1_024 || value[0] != "{" || value[length - 1] != "}") return false;
+        if (length == 2) return true;
+
+        uint256 i = 1;
+        while (i < length - 1) {
+            if (value[i++] != '"') return false;
+            uint256 keyStart = i;
+            while (i < length - 1 && value[i] != '"') {
+                bytes1 char = value[i++];
+                bool validKey = (char >= "0" && char <= "9") || (char >= "A" && char <= "Z")
+                    || (char >= "a" && char <= "z") || char == "_" || char == "-";
+                if (!validKey) return false;
+            }
+            if (i == keyStart || i >= length - 1 || value[i++] != '"' || value[i++] != ":" || value[i++] != '"') {
+                return false;
+            }
+            if (
+                i + 8 > length - 1 || value[i] != "h" || value[i + 1] != "t" || value[i + 2] != "t"
+                    || value[i + 3] != "p" || value[i + 4] != "s" || value[i + 5] != ":" || value[i + 6] != "/"
+                    || value[i + 7] != "/"
+            ) return false;
+            i += 8;
+            uint256 linkStart = i;
+            while (i < length - 1 && value[i] != '"') {
+                bytes1 char = value[i++];
+                if (char < 0x21 || char > 0x7E || char == "\\") return false;
+            }
+            if (i == linkStart || i >= length - 1 || value[i++] != '"') return false;
+            if (i == length - 1) return true;
+            if (value[i++] != ",") return false;
+        }
+        return false;
     }
 }

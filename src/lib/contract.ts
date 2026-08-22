@@ -138,7 +138,17 @@ export const voidTokenAbi = [
 ] as const;
 
 export const hoodSkinControllerAbi = [
-  ...voidSkinControllerAbi.filter((item) => item.type !== "function" || item.name !== "approveRename"),
+  ...voidSkinControllerAbi.filter((item) => item.type !== "function" || (item.name !== "approveRename" && item.name !== "lockRenameSlot")),
+  {
+    type: "function",
+    name: "lockRenameSlot",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "burnId", type: "uint256" },
+      { name: "expectedCommitment", type: "bytes32" },
+    ],
+    outputs: [],
+  },
   { type: "function", name: "displayName", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "displaySymbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   {

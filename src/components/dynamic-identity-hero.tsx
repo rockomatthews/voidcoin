@@ -29,6 +29,7 @@ export function DynamicIdentityHero() {
   const marketVersion = configuredMarketVersion();
   const links = tokenAddress ? officialTokenLinks(tokenAddress, marketVersion) : null;
   const [identity, setIdentity] = useState(genesis);
+  const [immutableIdentity, setImmutableIdentity] = useState({ name: "VOIDCOIN", symbol: "VOID" });
   const [nextBurn, setNextBurn] = useState(INITIAL_BURN_REQUIREMENT);
 
   useEffect(() => {
@@ -41,6 +42,9 @@ export function DynamicIdentityHero() {
         if (state?.name && state?.symbol) {
           setIdentity(liveIdentityFromContract({ name: state.name, symbol: state.symbol, image: state.image ?? null }, archived));
         }
+        if (state?.immutableName && state?.immutableSymbol) {
+          setImmutableIdentity({ name: state.immutableName, symbol: state.immutableSymbol });
+        }
         if (state?.nextBurnAmount) setNextBurn(state.nextBurnAmount);
       }).catch(() => undefined);
     void load();
@@ -49,10 +53,12 @@ export function DynamicIdentityHero() {
   }, []);
 
   useEffect(() => {
-    document.title = `${identity.name} ($${identity.symbol}) — Try to control the coin that transforms`;
+    document.title = marketVersion === "hood"
+      ? `${identity.name} ($${identity.symbol}) · token ${immutableIdentity.name} ($${immutableIdentity.symbol})`
+      : `${identity.name} ($${identity.symbol}) — Try to control the coin that transforms`;
     const icon = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
     if (icon) icon.href = identity.image ?? "/voidcoin-logo.png";
-  }, [identity]);
+  }, [identity, immutableIdentity, marketVersion]);
 
   const image = identity.image ?? "/voidcoin-logo.png";
   const remoteImage = image.startsWith("http");
@@ -63,11 +69,12 @@ export function DynamicIdentityHero() {
         <a className="void-mark" href="#top" aria-label={`${identity.name} home`}>
           <span><Image src={image} alt="" width={34} height={34} unoptimized={remoteImage} /></span>
           {identity.name} <small>${identity.symbol}</small>
+          {marketVersion === "hood" ? <em>WALLETS: {immutableIdentity.name} (${immutableIdentity.symbol})</em> : null}
         </a>
         <div className="nav-actions">
           <span className="network-mark">{marketVersion === "hood" ? "ROBINHOOD CHAIN" : "BASE MAINNET"}</span>
-          {marketVersion === "hood" && links && "primaryMarket" in links
-            ? <a className="nav-market-link" href={links.primaryMarket} target="_blank" rel="noreferrer">BUY ON HOOD ↗</a>
+          {marketVersion === "hood" && links && "fomo" in links
+            ? <a className="nav-market-link" href={links.fomo} target="_blank" rel="noreferrer">BUY ON FOMO ↗</a>
             : links && "baseApp" in links
               ? <a className="nav-market-link" href={links.baseApp} target="_blank" rel="noreferrer">BUY ON BASE ↗</a>
               : null}
@@ -86,8 +93,9 @@ export function DynamicIdentityHero() {
         </div>
         <p className="void-label">TRY TO CONTROL THE COIN THAT TRANSFORMS</p>
         <h1 id="void-title"><strong>{identity.name}</strong><span>${identity.symbol}</span></h1>
-        <p className="void-message">The first identity change permanently burns <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {identity.symbol}</b>. Every next record must clear both +{formatNumber(TAKEOVER_INCREMENT)} tokens and +{TAKEOVER_INCREASE_PERCENT}%. The larger increase wins.</p>
-        <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} {identity.symbol}</strong></div>
+        {marketVersion === "hood" ? <p className="void-message"><b>DISPLAY SKIN:</b> {identity.name} (${identity.symbol}). <b>THE TOKEN IN EVERY WALLET AND EXCHANGE REMAINS {immutableIdentity.name} (${immutableIdentity.symbol}).</b></p> : null}
+        <p className="void-message">The first identity change permanently burns <b>{formatNumber(INITIAL_BURN_REQUIREMENT)} {immutableIdentity.symbol}</b>. Every next record must clear both +{formatNumber(TAKEOVER_INCREMENT)} tokens and +{TAKEOVER_INCREASE_PERCENT}%. The larger increase wins.</p>
+        <div className="hero-burn-callout"><span>NEXT IDENTITY BURN</span><strong>{formatNumber(nextBurn)} {immutableIdentity.symbol}</strong></div>
         <details className="request-drawer hero-request-drawer">
           <summary>REQUEST THE NEXT IDENTITY <span>+</span></summary>
           <BurnTerminal />

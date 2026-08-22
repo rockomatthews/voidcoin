@@ -31,6 +31,10 @@ interface IHoodLauncher {
         returns (address token, address pool, uint256 positionId);
 }
 
+interface IPositionOwner {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+
 /// @notice No-broadcast rehearsal against hood.dev's live Robinhood Chain contracts.
 /// @dev Opt-in so the normal offline suite stays deterministic:
 ///      RUN_HOOD_LIVE_GATE=true ROBINHOOD_MAINNET_RPC_URL=... forge test --match-contract VOIDHoodV5ForkTest -vv
@@ -38,6 +42,12 @@ contract VOIDHoodV5ForkTest is Test {
     uint256 internal constant ROBINHOOD_CHAIN_ID = 4663;
     uint256 internal constant ORIGINAL_SUPPLY = 1_000_000_000 ether;
     address internal constant PRODUCTION_SAFE = 0x30cA25b5de6d9d8eD6Df5a2392211d1F10b266b9;
+    address internal constant UNISWAP_POSITION_MANAGER = 0x73991a25C818Bf1f1128dEAaB1492D45638DE0D3;
+    address internal constant UNISWAP_FEE_LOCKER = 0x45B96D2482E5cCaf143e49417E528250C23B6eC7;
+    bytes32 internal constant UNISWAP_POSITION_MANAGER_CODE_HASH =
+        0x0a493d1af3d0f25fed8efa205244ebee14114267a08647fc38c515c7cd6ead4f;
+    bytes32 internal constant UNISWAP_FEE_LOCKER_CODE_HASH =
+        0x87d9b76a9c1971c080e42a5cd9e74ee8012243bad5576af39f48e927131b6542;
     IHoodLauncher internal constant LAUNCHER = IHoodLauncher(0x5e4121c262B846eb518EF3EADCD5566838AA841F);
     IHoodTokenOwnerRegistry internal constant REGISTRY =
         IHoodTokenOwnerRegistry(0xEBbf66e306cE0Df652898A4894f6aBAF09F8Cd58);
@@ -57,7 +67,7 @@ contract VOIDHoodV5ForkTest is Test {
             symbol: "VOID",
             image: "ipfs://QmSTzmwHa3NiHhEb6EsztuvYkScVnmuts9HkFobpVbbuJu",
             description: "VOIDCOIN V5 live launch rehearsal",
-            socials: '{"website":"https://voidcoin.wtf"}',
+            socials: '{"website":"https://voidcoin.fun"}',
             metadataURI: "ipfs://QmV5LiveGateMetadataOnly",
             userSalt: keccak256("VOIDCOIN-V5-LIVE-FORK-GATE"),
             tickIfToken0IsNewToken: -206000,
@@ -83,6 +93,9 @@ contract VOIDHoodV5ForkTest is Test {
         assertTrue(tokenAddress.code.length > 0, "token not deployed");
         assertTrue(pool != address(0) && pool.code.length > 0, "pool not deployed");
         assertGt(positionId, 0, "LP position not created");
+        assertEq(UNISWAP_POSITION_MANAGER.codehash, UNISWAP_POSITION_MANAGER_CODE_HASH, "position manager code changed");
+        assertEq(UNISWAP_FEE_LOCKER.codehash, UNISWAP_FEE_LOCKER_CODE_HASH, "FeeLocker code changed");
+        assertEq(IPositionOwner(UNISWAP_POSITION_MANAGER).ownerOf(positionId), UNISWAP_FEE_LOCKER, "LP NFT not locked");
 
         IHoodToken token = IHoodToken(tokenAddress);
         assertEq(token.name(), "VOIDCOIN", "name");
@@ -111,5 +124,23 @@ contract VOIDHoodV5ForkTest is Test {
         assertEq(token.description(), params.description, "launch description changed");
         assertEq(token.socials(), params.socials, "launch socials changed");
         assertEq(token.contractURI(), params.metadataURI, "launch metadata URI changed");
+
+        address burner = makeAddr("live-burner");
+        uint256 burnAmount = controller.INITIAL_BURN();
+        vm.roll(block.number + 100);
+        vm.prank(pool);
+        token.transfer(burner, burnAmount);
+        uint256 supplyBefore = token.totalSupply();
+        bytes32 commitment = keccak256("live-hood-burn-interface");
+        vm.prank(PRODUCTION_SAFE);
+        controller.setRenamePaused(false);
+        vm.startPrank(burner);
+        token.approve(address(controller), burnAmount);
+        controller.burnForRename(controller.nextBurnId(), burnAmount, commitment);
+        vm.stopPrank();
+
+        assertEq(token.totalSupply(), supplyBefore - burnAmount, "real HoodToken burn did not reduce supply");
+        assertEq(controller.contestBurned(), burnAmount, "real burn not counted by contest");
+        assertEq(controller.activeSlot().burner, burner, "real burner did not take active slot");
     }
 }

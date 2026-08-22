@@ -52,11 +52,13 @@ describe("token identity metadata", () => {
     expect(metadata.description).toContain("immutable ERC-20 identity remains VOIDCOIN (VOID)");
     expect(officialTokenLinks(address, "hood")).toEqual({
       website: "https://voidcoin.fun",
-      primaryMarket: "https://hood.dev",
-      robinhoodWallet: "https://robinhood.com/us/en/support/articles/robinhood-wallet/",
+      fomo: `https://fomo.family/tokens/robinhood/${address}`,
+      hoodTerminal: "https://hood.dev",
+      walletHelp: "https://robinhood.com/us/en/support/articles/robinhood-wallet/",
       dexScreener: `https://dexscreener.com/robinhood/${address}`,
       explorer: `https://robinhoodchain.blockscout.com/token/${address}`,
     });
+    expect(metadata.market_links).toContainEqual({ type: "fomo", label: "Buy on Fomo", url: `https://fomo.family/tokens/robinhood/${address}` });
   });
 
   it("resolves IPFS metadata and images through the configured gateway", () => {

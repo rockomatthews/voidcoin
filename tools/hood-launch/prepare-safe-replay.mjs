@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createPublicClient, decodeFunctionResult, http, parseAbi } from "viem";
+import { createPublicClient, decodeFunctionResult, http, keccak256, parseAbi } from "viem";
 import { defineChain } from "viem";
 
 const CHAIN_ID = 4663;
@@ -22,6 +22,13 @@ const dependencies = [
   "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
   "0x29fcb43b46531bca003ddc8fcb67ffe91900c762",
 ];
+const expectedDependencyCodeHashes = [
+  "0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317",
+  "0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4",
+  "0x2f25df28caf984366ee584e13241707e85dcd5a6ea0c14267928dafc1fd6274b",
+  "0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9",
+  "0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff",
+];
 const chain = defineChain({
   id: CHAIN_ID,
   name: "Robinhood Chain",
@@ -33,6 +40,11 @@ if (await client.getChainId() !== CHAIN_ID) throw new Error("wrong RPC chain");
 
 const dependencyCode = await Promise.all(dependencies.map((address) => client.getBytecode({ address })));
 if (dependencyCode.some((code) => !code)) throw new Error("a required Safe deployment contract has no code");
+for (let index = 0; index < dependencyCode.length; index += 1) {
+  if (keccak256(dependencyCode[index]) !== expectedDependencyCodeHashes[index]) {
+    throw new Error(`Safe dependency ${dependencies[index]} bytecode does not match canonical v1.4.1`);
+  }
+}
 
 const existingCode = await client.getBytecode({ address: EXPECTED_SAFE });
 let simulation = EXPECTED_SAFE;
@@ -57,6 +69,7 @@ const receipt = {
   proxyFactory: PROXY_FACTORY,
   sourceBaseCreationTransaction: BASE_CREATION_TX,
   simulation,
+  dependencyCodeHashes: Object.fromEntries(dependencies.map((address, index) => [address, expectedDependencyCodeHashes[index]])),
   transaction: existingCode ? null : { to: PROXY_FACTORY, value: "0", data: REPLAY_DATA },
 };
 

@@ -59,14 +59,22 @@ separate explicit gate.
 
 ## Launch preparation
 
-First publish the final V5 genesis JSON based on `tools/hood-launch/genesis-metadata.template.json`. Publication is an
-external, permanent action and requires its own authorization. Then configure:
+The launch address depends on the launch metadata URI, while the final metadata must contain that address. Resolve
+that dependency with two verified documents and two launch-batch calls:
+
+1. With publication authorization, run `npm run hood:bootstrap:publish`. This pins the logo and a bootstrap metadata
+   CID that contains no predicted address.
+2. Set `VOID_HOOD_START_TICK` and `VOID_HOOD_PREDICTION_ONLY=true`, then run `npm run hood:launch:prepare`. This writes
+   the CREATE2 prediction but deliberately writes an empty, non-executable Safe transaction list.
+3. Run `npm run hood:final:publish`. This pins the address-bound metadata, including the direct Fomo token route.
+4. Remove `VOID_HOOD_PREDICTION_ONLY` and run `npm run hood:launch:prepare` again. The resulting Safe batch launches the
+   token and immediately applies the final metadata CID to the predicted token in transaction two.
+5. Run `npm run hood:surface:verify`. Both public IPFS gateways must return the exact CID-bound JSON and PNG before the
+   Safe file may be executed.
+
+Publication is an external, permanent action and requires its own authorization. The preparation inputs are:
 
 ```sh
-VOID_HOOD_IMAGE_URI=ipfs://QmSTzmwHa3NiHhEb6EsztuvYkScVnmuts9HkFobpVbbuJu
-VOID_HOOD_METADATA_URI=ipfs://FINAL_V5_METADATA_CID
-VOID_HOOD_DESCRIPTION='VOIDCOIN is a Robinhood Chain token with immediately available locked Uniswap liquidity. Holders can permanently burn VOID to compete for the community-controlled display identity, artwork, description, and links. The ERC-20 name and ticker remain VOIDCOIN and VOID.'
-VOID_HOOD_SOCIALS='{"website":"https://voidcoin.fun"}'
 VOID_HOOD_START_TICK=-206000
 ```
 
@@ -81,9 +89,11 @@ npm run hood:launch:prepare
 Outputs:
 
 - `tools/hood-launch/launch-preparation.json` — human-review receipt;
-- `tools/hood-launch/safe-launch.json` — one Safe transaction calling `HoodLauncher.launch`.
+- `tools/hood-launch/safe-launch.json` — two atomic Safe batch calls: `HoodLauncher.launch`, then the predicted
+  `HoodToken.setContractURI(finalAddressBoundCid)`.
 
-The launch contains no dev buy. Buyers can trade after confirmation through the launchpad market. The optional sniper
+The launch contains no dev buy. Buyers can trade after confirmation through the address-specific Fomo route printed
+in the receipt (`https://fomo.family/tokens/robinhood/<TOKEN_ADDRESS>`) or by pasting the contract into hood.dev. The optional sniper
 guard remains enabled and caps non-exempt wallets at 2% for the launcher's snapshotted restriction window.
 
 The no-broadcast live fork gate is:
@@ -96,7 +106,8 @@ forge test --root contracts --match-contract VOIDHoodV5ForkTest -vv
 
 It launches through the live HoodLauncher on forked state, verifies the predicted token and live Uniswap V3 pool,
 checks the nominal supply/dust bound and all metadata getters, deploys the controller, transfers registry ownership,
-and proves the controller remains paused. It never broadcasts.
+proves the controller remains paused, and executes a real `HoodToken.burn()` through the controller on forked state.
+It never broadcasts.
 
 ## Controller sequence
 

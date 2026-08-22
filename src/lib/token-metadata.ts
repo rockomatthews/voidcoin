@@ -19,8 +19,9 @@ export function officialBaseTokenLinks(contractAddress: `0x${string}`) {
 export function officialHoodTokenLinks(contractAddress: `0x${string}`) {
   return {
     website: OFFICIAL_WEBSITE,
-    primaryMarket: "https://hood.dev",
-    robinhoodWallet: "https://robinhood.com/us/en/support/articles/robinhood-wallet/",
+    fomo: `https://fomo.family/tokens/robinhood/${contractAddress}`,
+    hoodTerminal: "https://hood.dev",
+    walletHelp: "https://robinhood.com/us/en/support/articles/robinhood-wallet/",
     dexScreener: `https://dexscreener.com/robinhood/${contractAddress}`,
     explorer: `https://robinhoodchain.blockscout.com/token/${contractAddress}`,
   } as const;
@@ -134,6 +135,14 @@ export function approvedHoodTokenMetadata(
     chain_id: 4663,
     contract_address: contractAddress,
     links,
+    market_links: [
+      { type: "website", label: "Website", url: links.website },
+      { type: "fomo", label: "Buy on Fomo", url: links.fomo },
+      { type: "terminal", label: "hood.dev", url: links.hoodTerminal },
+      { type: "dexscreener", label: "DEX Screener", url: links.dexScreener },
+      { type: "explorer", label: "Contract", url: links.explorer },
+      { type: "wallet-help", label: "Robinhood Wallet help", url: links.walletHelp },
+    ],
     properties: {
       network: "Robinhood Chain",
       chainId: 4663,

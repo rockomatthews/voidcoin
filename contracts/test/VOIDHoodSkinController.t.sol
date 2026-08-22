@@ -189,6 +189,39 @@ contract VOIDHoodSkinControllerTest is Test {
         assertEq(controller.activeSlot().burner, first);
     }
 
+    function testSocialsMustBeCompactHttpsJson() public {
+        (uint256 burnId, uint256 amount, bytes32 salt, bytes32 commitment) = _proposal(first);
+        _burn(first, amount, commitment);
+
+        VOIDHoodSkinController.SkinProposal memory invalid = _skin();
+        invalid.socials = "not json";
+        vm.prank(safe);
+        vm.expectRevert(VOIDHoodSkinController.InvalidSocials.selector);
+        controller.approveRename(burnId, invalid, salt);
+
+        invalid.socials = '{"x":"javascript:alert(1)"}';
+        vm.prank(safe);
+        vm.expectRevert(VOIDHoodSkinController.InvalidSocials.selector);
+        controller.approveRename(burnId, invalid, salt);
+    }
+
+    function testLockBindsTheCommitmentTheSafeReviewed() public {
+        (uint256 burnId, uint256 amount,, bytes32 reviewedCommitment) = _proposal(first);
+        _burn(first, amount, reviewedCommitment);
+
+        bytes32 replacement = keccak256("replacement");
+        vm.prank(first);
+        controller.replaceCommitment(burnId, replacement);
+
+        vm.prank(safe);
+        vm.expectRevert(VOIDHoodSkinController.CommitmentMismatch.selector);
+        controller.lockRenameSlot(burnId, reviewedCommitment);
+
+        vm.prank(safe);
+        controller.lockRenameSlot(burnId, replacement);
+        assertGt(controller.activeSlot().lockedUntil, block.timestamp);
+    }
+
     function testHigherBurnCanTakeTheActiveSlot() public {
         _burn(first, 1_000_000 ether, keccak256("first"));
         _burn(second, 1_250_000 ether, keccak256("second"));
