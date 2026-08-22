@@ -21,6 +21,7 @@ const dependencies = [
   "0xBD89A1CE4DDe368FFAB0eC35506eEcE0b1fFdc54",
   "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
   "0x29fcb43b46531bca003ddc8fcb67ffe91900c762",
+  "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
 ];
 const expectedDependencyCodeHashes = [
   "0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317",
@@ -28,6 +29,7 @@ const expectedDependencyCodeHashes = [
   "0x2f25df28caf984366ee584e13241707e85dcd5a6ea0c14267928dafc1fd6274b",
   "0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9",
   "0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff",
+  "0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939",
 ];
 const chain = defineChain({
   id: CHAIN_ID,

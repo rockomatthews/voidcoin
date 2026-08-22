@@ -1,27 +1,39 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
+  concatHex,
   createPublicClient,
   encodeFunctionData,
   getAddress,
   http,
   isAddress,
   keccak256,
+  padHex,
   parseAbi,
+  size,
   stringToHex,
+  toHex,
 } from "viem";
 import { defineChain } from "viem";
+import { assertHoodSocials } from "./validate-socials.mjs";
 
 const CHAIN_ID = 4663;
 const RPC_URL = process.env.ROBINHOOD_MAINNET_RPC_URL?.trim() || "https://rpc.mainnet.chain.robinhood.com";
 const SAFE = "0x30cA25b5de6d9d8eD6Df5a2392211d1F10b266b9";
 const LAUNCHER = "0x5e4121c262B846eb518EF3EADCD5566838AA841F";
 const OWNER_REGISTRY = "0xEBbf66e306cE0Df652898A4894f6aBAF09F8Cd58";
+const FEE_LOCKER = "0x45B96D2482E5cCaf143e49417E528250C23B6eC7";
+const POSITION_MANAGER = "0x73991a25C818Bf1f1128dEAaB1492D45638DE0D3";
+const MULTISEND_CALL_ONLY = "0x9641d764fc13c8B624c04430C7356C1C7C8102e2";
 const EXPECTED_LAUNCHER_CODE_HASH = "0xbe8f598c66a8a559faef2a6aea9b79273de6b439ba2d47e3b6af35c8364042c9";
 const EXPECTED_REGISTRY_CODE_HASH = "0xd106a4c613f6c254c316010ff7169ab308f6a669ed5a5d9a42bc449c8866b265";
+const EXPECTED_FEE_LOCKER_CODE_HASH = "0x87d9b76a9c1971c080e42a5cd9e74ee8012243bad5576af39f48e927131b6542";
+const EXPECTED_POSITION_MANAGER_CODE_HASH = "0x0a493d1af3d0f25fed8efa205244ebee14114267a08647fc38c515c7cd6ead4f";
+const EXPECTED_MULTISEND_CALL_ONLY_CODE_HASH = "0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939";
 const VENUE_ID = 1;
 const DEFAULT_SUPPLY = 1_000_000_000n * 10n ** 18n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const TOKEN_UNIT = 10n ** 18n;
 
 const robinhood = defineChain({
   id: CHAIN_ID,
@@ -79,13 +91,7 @@ assertUri("VOID_HOOD_IMAGE_URI", image);
 assertUri("VOID_HOOD_METADATA_URI", metadataURI);
 if (finalMetadataURI) assertUri("VOID_HOOD_FINAL_METADATA_URI", finalMetadataURI);
 if (description.length === 0 || description.length > 2_048) throw new Error("VOID_HOOD_DESCRIPTION length is invalid");
-const parsedSocials = JSON.parse(socials);
-if (!parsedSocials || Array.isArray(parsedSocials) || typeof parsedSocials !== "object") throw new Error("VOID_HOOD_SOCIALS must be a JSON object");
-for (const [key, value] of Object.entries(parsedSocials)) {
-  if (!/^[A-Za-z0-9_-]+$/.test(key) || typeof value !== "string" || !value.startsWith("https://")) {
-    throw new Error("VOID_HOOD_SOCIALS accepts only compact HTTPS string links");
-  }
-}
+assertHoodSocials(socials);
 
 const userSalt = process.env.VOID_HOOD_USER_SALT?.trim() || keccak256(stringToHex(`VOIDCOIN-V5-${metadataURI}`));
 if (!/^0x[0-9a-fA-F]{64}$/.test(userSalt)) throw new Error("VOID_HOOD_USER_SALT must be bytes32");
@@ -93,12 +99,15 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(userSalt)) throw new Error("VOID_HOOD_USER_SALT 
 const client = createPublicClient({ chain: robinhood, transport: http(RPC_URL) });
 const chainId = await client.getChainId();
 if (chainId !== CHAIN_ID) throw new Error(`RPC chain ${chainId}; expected ${CHAIN_ID}`);
-const [blockNumber, launcherCode, safeCode, registryCode, launchFee, minFdvWei, maxFdvWei, minSupply, maxSupply, venueExists] =
+const [blockNumber, launcherCode, safeCode, registryCode, feeLockerCode, positionManagerCode, multiSendCallOnlyCode, launchFee, minFdvWei, maxFdvWei, minSupply, maxSupply, venueExists] =
   await Promise.all([
     client.getBlockNumber(),
     client.getBytecode({ address: LAUNCHER }),
     client.getBytecode({ address: SAFE }),
     client.getBytecode({ address: OWNER_REGISTRY }),
+    client.getBytecode({ address: FEE_LOCKER }),
+    client.getBytecode({ address: POSITION_MANAGER }),
+    client.getBytecode({ address: MULTISEND_CALL_ONLY }),
     client.readContract({ address: LAUNCHER, abi: launcherAbi, functionName: "launchFee" }),
     client.readContract({ address: LAUNCHER, abi: launcherAbi, functionName: "minFdvWei" }),
     client.readContract({ address: LAUNCHER, abi: launcherAbi, functionName: "maxFdvWei" }),
@@ -107,10 +116,18 @@ const [blockNumber, launcherCode, safeCode, registryCode, launchFee, minFdvWei, 
     client.readContract({ address: LAUNCHER, abi: launcherAbi, functionName: "venueExists", args: [VENUE_ID] }),
   ]);
 
-if (!launcherCode || !safeCode || !registryCode) throw new Error("launcher, Safe, or registry has no code");
+if (!launcherCode || !safeCode || !registryCode || !feeLockerCode || !positionManagerCode || !multiSendCallOnlyCode) {
+  throw new Error("a required Hood or Safe launch dependency has no code");
+}
 if (keccak256(launcherCode) !== EXPECTED_LAUNCHER_CODE_HASH) throw new Error("live HoodLauncher bytecode does not match the reviewed deployment");
 if (keccak256(registryCode) !== EXPECTED_REGISTRY_CODE_HASH) throw new Error("live TokenOwnerRegistry bytecode does not match the reviewed deployment");
+if (keccak256(feeLockerCode) !== EXPECTED_FEE_LOCKER_CODE_HASH) throw new Error("live FeeLocker bytecode does not match the reviewed deployment");
+if (keccak256(positionManagerCode) !== EXPECTED_POSITION_MANAGER_CODE_HASH) throw new Error("live position manager bytecode does not match the reviewed deployment");
+if (keccak256(multiSendCallOnlyCode) !== EXPECTED_MULTISEND_CALL_ONLY_CODE_HASH) throw new Error("live MultiSendCallOnly bytecode is not canonical");
 if (!venueExists) throw new Error("Uniswap V3 launch venue is not registered");
+if (minSupply % TOKEN_UNIT !== 0n || maxSupply % TOKEN_UNIT !== 0n) {
+  throw new Error("live launcher supply bounds are not expressed in reviewed 18-decimal base units");
+}
 if (DEFAULT_SUPPLY < minSupply || DEFAULT_SUPPLY > maxSupply) {
   throw new Error("one-billion supply is outside the live launcher bounds");
 }
@@ -160,17 +177,37 @@ const finalMetadataData = finalMetadataURI ? encodeFunctionData({
   functionName: "setContractURI",
   args: [finalMetadataURI],
 }) : null;
+const launchTransactions = !predictionOnly && finalMetadataData ? [
+  { to: LAUNCHER, value: launchFee.toString(), data, contractMethod: null, contractInputsValues: null },
+  { to: predictedToken, value: "0", data: finalMetadataData, contractMethod: null, contractInputsValues: null },
+] : [];
+function packMultiSendTransaction(transaction) {
+  return concatHex([
+    "0x00",
+    transaction.to,
+    padHex(toHex(BigInt(transaction.value)), { size: 32 }),
+    padHex(toHex(size(transaction.data)), { size: 32 }),
+    transaction.data,
+  ]);
+}
+const multiSendData = launchTransactions.length === 2 ? encodeFunctionData({
+  abi: parseAbi(["function multiSend(bytes transactions)"]),
+  functionName: "multiSend",
+  args: [concatHex(launchTransactions.map(packMultiSendTransaction))],
+}) : null;
 const createdAt = Date.now();
 const outputDir = resolve("tools/hood-launch");
 await mkdir(outputDir, { recursive: true });
 
 const receipt = {
-  status: finalMetadataURI ? "PREPARED_NOT_EXECUTED" : "PREDICTION_ONLY_FINAL_METADATA_REQUIRED",
+  status: launchTransactions.length === 2
+    ? "PREPARED_NOT_EXECUTED"
+    : finalMetadataURI ? "PREDICTION_ONLY_NOT_EXECUTABLE" : "PREDICTION_ONLY_FINAL_METADATA_REQUIRED",
   warning: "Review only. Nothing has been signed, broadcast, or launched.",
   createdAt,
   chain: { chainId, blockNumber, rpc: RPC_URL },
-  deployment: { safe: SAFE, launcher: LAUNCHER, ownerRegistry: OWNER_REGISTRY, predictedToken },
-  launch: { ...params, bootstrapMetadataURI: metadataURI, finalMetadataURI, launchFee, minFdvWei, maxFdvWei, normalizedApproximateFdvWei: Math.floor(normalizedApproximateFdvWei).toString() },
+  deployment: { safe: SAFE, launcher: LAUNCHER, ownerRegistry: OWNER_REGISTRY, feeLocker: FEE_LOCKER, positionManager: POSITION_MANAGER, multiSendCallOnly: MULTISEND_CALL_ONLY, predictedToken },
+  launch: { ...params, bootstrapMetadataURI: metadataURI, finalMetadataURI, launchFee, minFdvWei, maxFdvWei, minSupplyRaw: minSupply, maxSupplyRaw: maxSupply, minSupplyTokens: minSupply / TOKEN_UNIT, maxSupplyTokens: maxSupply / TOKEN_UNIT, normalizedApproximateFdvWei: Math.floor(normalizedApproximateFdvWei).toString() },
   buying: {
     fomo: `https://fomo.family/tokens/robinhood/${predictedToken}`,
     hoodTerminal: "https://hood.dev",
@@ -187,8 +224,17 @@ const receipt = {
     mintingAfterLaunch: false,
     immutableErc20NameAndSymbol: true,
     controllerHandoffIncluded: false,
-    finalAddressBoundMetadataAppliedInLaunchBatch: Boolean(finalMetadataURI),
+    finalAddressBoundMetadataAppliedInLaunchBatch: launchTransactions.length === 2,
+    safeNonceMustIncrementExactlyOnce: true,
   },
+  execution: launchTransactions.length === 2 ? {
+    requirement: "Execute the two inner calls as one Safe MultiSendCallOnly delegatecall. Never execute them separately.",
+    to: MULTISEND_CALL_ONLY,
+    value: "0",
+    data: multiSendData,
+    operation: 1,
+    innerTransactions: launchTransactions,
+  } : null,
 };
 
 const safeFile = {
@@ -203,15 +249,22 @@ const safeFile = {
     createdFromOwnerAddress: "",
     checksum: "",
   },
-  transactions: finalMetadataData ? [
-    { to: LAUNCHER, value: launchFee.toString(), data, contractMethod: null, contractInputsValues: null },
-    { to: predictedToken, value: "0", data: finalMetadataData, contractMethod: null, contractInputsValues: null },
-  ] : [],
+  transactions: launchTransactions,
+};
+
+const safeExecution = {
+  status: multiSendData ? "PREPARED_NOT_EXECUTED" : "PREDICTION_ONLY_NOT_EXECUTABLE",
+  warning: "This outer delegatecall is the only approved execution shape. Nothing was proposed, signed, or broadcast.",
+  chainId: CHAIN_ID,
+  safe: SAFE,
+  transaction: multiSendData ? { to: MULTISEND_CALL_ONLY, value: "0", data: multiSendData, operation: 1 } : null,
+  innerTransactions: launchTransactions,
 };
 
 await Promise.all([
   writeFile(resolve(outputDir, "launch-preparation.json"), json(receipt)),
   writeFile(resolve(outputDir, "safe-launch.json"), json(safeFile)),
+  writeFile(resolve(outputDir, "safe-launch-execution.json"), json(safeExecution)),
 ]);
 
 console.log(json({ status: receipt.status, predictedToken, launchFeeWei: launchFee, blockNumber }));

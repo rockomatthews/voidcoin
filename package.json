@@ -26,12 +26,13 @@
     "hood:bootstrap:publish": "node --env-file=.env.local scripts/publish-hood-bootstrap.mjs",
     "hood:final:publish": "node --env-file=.env.local scripts/publish-hood-final.mjs",
     "hood:surface:verify": "node --env-file=.env.local scripts/verify-hood-surface-readiness.mjs",
+    "hood:socials:test": "node scripts/hood-socials-validator-harness.mjs",
     "hood:safe:prepare": "node --env-file-if-exists=.env.local tools/hood-launch/prepare-safe-replay.mjs",
     "hood:controller:handoff": "node --env-file=.env.local tools/hood-launch/prepare-controller-handoff.mjs",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts -vvv",
     "contracts:security": "./scripts/security-check.sh",
-    "verify": "npm run lint && npm test && npm run b20:surface:test && npm run build"
+    "verify": "npm run lint && npm test && npm run b20:surface:test && npm run hood:socials:test && npm run build"
   },
   "dependencies": {
     "@coinbase/wallet-sdk": "^4.3.7",

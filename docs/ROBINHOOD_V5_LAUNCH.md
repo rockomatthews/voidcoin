@@ -38,6 +38,13 @@ fork at the frozen `-206000` tick requested `1,000,000,000e18` and settled at
 display precision, but V5 records the post-launch total as the controller's baseline so it is not misreported as a
 contest burn. The deployment gate rejects launch dust above 1,000,000 wei (0.000000000001 VOID).
 
+The launch-day read-only preflight at Robinhood Chain block `43,470,747` confirmed that `minSupply()` and
+`maxSupply()` are 18-decimal base-unit values (`1e18` through `1e33`), so the requested `1e27` raw supply is exactly
+one billion VOID and lies inside the live bounds. The verified FeeLocker source has no position transfer, approval,
+liquidity-decrease, burn, sweep, migration, arbitrary-call, or upgrade path; its LP interaction is fee collection only.
+Launch preparation pins the live FeeLocker, position manager, launcher, registry, and canonical MultiSendCallOnly
+runtime hashes and fails closed if any changes.
+
 ## Production contracts and addresses
 
 - Existing 2-of-3 Safe address: `0x30cA25b5de6d9d8eD6Df5a2392211d1F10b266b9`
@@ -89,8 +96,19 @@ npm run hood:launch:prepare
 Outputs:
 
 - `tools/hood-launch/launch-preparation.json` — human-review receipt;
-- `tools/hood-launch/safe-launch.json` — two atomic Safe batch calls: `HoodLauncher.launch`, then the predicted
-  `HoodToken.setContractURI(finalAddressBoundCid)`.
+- `tools/hood-launch/safe-launch.json` — the two reviewed inner calls: `HoodLauncher.launch`, then the predicted
+  `HoodToken.setContractURI(finalAddressBoundCid)`;
+- `tools/hood-launch/safe-launch-execution.json` — the only approved execution envelope: one canonical
+  `MultiSendCallOnly` delegatecall containing both inner calls. Never submit or execute the inner calls separately.
+
+The launch Safe nonce must increase exactly once. Immediately after confirmation—and before controller deployment—run:
+
+```sh
+npm run hood:surface:verify -- --token 0xACTUAL_TOKEN
+```
+
+This fails if the deployed token differs from the prediction or if the final address-bound `contractURI`, image,
+identity, or launch supply is wrong. After controller deployment, repeat it with `--controller 0xCONTROLLER`.
 
 The launch contains no dev buy. Buyers can trade after confirmation through the address-specific Fomo route printed
 in the receipt (`https://fomo.family/tokens/robinhood/<TOKEN_ADDRESS>`) or by pasting the contract into hood.dev. The optional sniper

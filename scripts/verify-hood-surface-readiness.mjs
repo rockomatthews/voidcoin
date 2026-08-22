@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createPublicClient, defineChain, getAddress, http, toFunctionSelector } from "viem";
+import { concatHex, createPublicClient, defineChain, encodeFunctionData, getAddress, http, padHex, parseAbi, size, toFunctionSelector, toHex } from "viem";
 import { verifySurfaceReceipt } from "./verify-b20-surface-readiness.mjs";
 
 const WEBSITE = "https://voidcoin.fun";
@@ -55,10 +55,11 @@ function argument(name) {
 
 const receiptPath = path.resolve(argument("--receipt") ?? "assets/genesis/hood-published.json");
 const preparationPath = path.resolve(argument("--preparation") ?? "tools/hood-launch/launch-preparation.json");
-const [receipt, preparation, safeBatch] = await Promise.all([
+const [receipt, preparation, safeBatch, safeExecution] = await Promise.all([
   readFile(receiptPath, "utf8").then(JSON.parse),
   readFile(preparationPath, "utf8").then(JSON.parse),
   readFile(path.resolve("tools/hood-launch/safe-launch.json"), "utf8").then(JSON.parse),
+  readFile(path.resolve("tools/hood-launch/safe-launch-execution.json"), "utf8").then(JSON.parse),
 ]);
 const predictedToken = getAddress(preparation?.deployment?.predictedToken);
 requireValue(receipt?.prediction?.token?.toLowerCase() === predictedToken.toLowerCase(), "Final metadata receipt does not match the live launch prediction");
@@ -69,6 +70,21 @@ requireValue(safeBatch?.transactions?.length === 2, "Launch must be one two-call
 requireValue(safeBatch.transactions[0]?.to?.toLowerCase() === preparation.deployment.launcher.toLowerCase(), "Safe batch does not launch first");
 requireValue(safeBatch.transactions[1]?.to?.toLowerCase() === predictedToken.toLowerCase(), "Safe batch final metadata call targets the wrong token");
 requireValue(safeBatch.transactions[1]?.data?.startsWith(toFunctionSelector("setContractURI(string)")), "Safe batch does not apply final contractURI second");
+const packedTransactions = concatHex(safeBatch.transactions.map((transaction) => concatHex([
+  "0x00",
+  transaction.to,
+  padHex(toHex(BigInt(transaction.value)), { size: 32 }),
+  padHex(toHex(size(transaction.data)), { size: 32 }),
+  transaction.data,
+])));
+const expectedMultiSendData = encodeFunctionData({
+  abi: parseAbi(["function multiSend(bytes transactions)"]),
+  functionName: "multiSend",
+  args: [packedTransactions],
+});
+requireValue(safeExecution?.transaction?.to?.toLowerCase() === preparation.deployment.multiSendCallOnly.toLowerCase(), "Launch execution does not target canonical MultiSendCallOnly");
+requireValue(safeExecution.transaction.operation === 1, "Launch execution must be a delegatecall");
+requireValue(safeExecution.transaction.data === expectedMultiSendData, "Launch execution payload does not exactly bind both reviewed calls");
 
 const observations = await verifySurfaceReceipt({ receipt, expectedAddress: predictedToken, assertMetadataFn: assertHoodMetadata });
 let phase = "predeploy-prediction";
@@ -77,8 +93,7 @@ if (deployed) {
   const token = getAddress(deployed);
   requireValue(token.toLowerCase() === predictedToken.toLowerCase(), "Deployed token differs from prediction");
   const controllerValue = argument("--controller");
-  requireValue(controllerValue, "--controller is required with --token");
-  const controller = getAddress(controllerValue);
+  const controller = controllerValue ? getAddress(controllerValue) : null;
   const rpc = process.env.ROBINHOOD_MAINNET_RPC_URL?.trim();
   requireValue(rpc, "ROBINHOOD_MAINNET_RPC_URL is required for deployed verification");
   const chain = defineChain({ id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [rpc] } } });
@@ -100,13 +115,13 @@ if (deployed) {
     client.readContract({ address: token, abi: tokenAbi, functionName: "totalSupply" }),
     client.readContract({ address: token, abi: tokenAbi, functionName: "contractURI" }),
     client.readContract({ address: token, abi: tokenAbi, functionName: "image" }),
-    client.readContract({ address: controller, abi: controllerAbi, functionName: "token" }),
+    controller ? client.readContract({ address: controller, abi: controllerAbi, functionName: "token" }) : null,
   ]);
   requireValue(name === "VOIDCOIN" && symbol === "VOID" && decimals === 18, "Deployed immutable identity mismatch");
   requireValue(supply <= ORIGINAL_SUPPLY && supply + MAX_LAUNCH_DUST >= ORIGINAL_SUPPLY, "Deployed supply differs from the reviewed launch range");
   requireValue(contractURI === receipt.metadataURI && image === receipt.imageURI, "Deployed metadata surfaces differ from the verified receipt");
-  requireValue(controllerToken.toLowerCase() === token.toLowerCase(), "Controller does not govern the deployed token");
-  phase = "deployed-robinhood-mainnet";
+  if (controller) requireValue(controllerToken.toLowerCase() === token.toLowerCase(), "Controller does not govern the deployed token");
+  phase = controller ? "deployed-robinhood-mainnet-with-controller" : "deployed-robinhood-mainnet-pre-controller";
 }
 
 console.log(JSON.stringify({ ok: true, phase, token: predictedToken, fomo: routes(predictedToken).fomo, metadataURI: receipt.metadataURI, imageURI: receipt.imageURI, observations }, null, 2));
